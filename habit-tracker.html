@@ -2,8 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Habit Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-title" content="tendto">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>tendto</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,500;0,9..40,700;1,9..40,300&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -24,8 +27,11 @@
     --green-light: #e2f2ea;
     --coming-bg: #f6f9fc;
     --coming-border: #b8d0e8;
-    --red: #c04a3a;
-    --blue: #2e6da4;
+    --amber: #b8860b;
+    --amber-light: #fef8e4;
+    --mood-good: #2e8a5e;
+    --mood-okay: #2e6da4;
+    --mood-tough: #b8860b;
     --radius: 9px;
     --mono: 'DM Mono', monospace;
     --sans: 'DM Sans', sans-serif;
@@ -45,8 +51,15 @@
   /* LAYOUT */
   .app { display: flex; flex-direction: column; min-height: 100vh; max-width: 960px; margin: 0 auto; padding: 0 16px; }
 
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--bg);
+  }
+
   header {
-    padding: 20px 0 16px;
+    padding: 14px 0 12px;
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
@@ -743,7 +756,29 @@
 
   .toast.show { opacity: 1; transform: translateY(0); }
   .toast.success { background: var(--green); }
-  .toast.error { background: var(--red); }
+  .toast.error { background: #c04a3a; }
+
+  /* ABOUT PAGE */
+  .about-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px 22px;
+    margin-bottom: 14px;
+  }
+  .about-hero { text-align: center; padding: 28px 22px; }
+  .about-tagline { color: var(--text-dim); font-size: 14px; max-width: 340px; margin: 0 auto; line-height: 1.6; }
+  .about-section h3 { font-size: 13px; font-family: var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .about-section p { color: var(--text-dim); line-height: 1.65; font-size: 13.5px; }
+  .about-section code { font-family: var(--mono); font-size: 12px; background: var(--surface2); padding: 1px 5px; border-radius: 3px; }
+  .about-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+  .about-list li { color: var(--text-dim); font-size: 13.5px; line-height: 1.55; }
+  .about-tip { margin-top: 14px; background: var(--accent-light); border: 1px solid var(--border); border-radius: 7px; padding: 10px 14px; font-size: 13px; color: var(--text-dim); line-height: 1.55; }
+  .example-habits { display: flex; flex-direction: column; gap: 10px; margin: 12px 0; }
+  .example-habit { display: flex; gap: 12px; align-items: flex-start; }
+  .example-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+  .example-habit strong { font-size: 13.5px; color: var(--text); display: block; }
+  .example-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: var(--mono); }
 
   @media (max-width: 600px) {
     .habit-row {
@@ -767,13 +802,14 @@
 </head>
 <body>
 <div class="app">
+  <div class="sticky-top">
   <header>
-    <div class="logo">habit<span>.</span>log</div>
+    <div class="logo">tend<span>to</span></div>
     <nav>
       <button class="active" onclick="switchView('daily')">Today</button>
       <button onclick="switchView('manage')">Habits</button>
       <button onclick="switchView('report')">Reports</button>
-      <button onclick="switchView('data')">Data</button>
+      <button onclick="switchView('about')">About</button>
     </nav>
   </header>
 
@@ -788,6 +824,7 @@
       <span id="date-label"></span>
     </div>
     <button class="today-btn" onclick="goToday()">Today</button>
+  </div>
   </div>
 
   <!-- DAILY VIEW -->
@@ -823,23 +860,66 @@
     <div id="drilldown-content"></div>
   </div>
 
-  <!-- DATA VIEW -->
-  <div class="view" id="view-data">
-    <div class="data-section">
-      <h3>Export</h3>
-      <p>Download all your habits and log data as a CSV file. Use this to back up your data or move it to another browser.</p>
-      <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+  <!-- ABOUT + DATA VIEW -->
+  <div class="view" id="view-about">
+    <div class="about-section about-hero">
+      <div class="logo" style="font-size:28px;margin-bottom:10px">tend<span>to</span></div>
+      <p class="about-tagline">Track what matters. Notice how it feels. Tend to it over time.</p>
     </div>
-    <div class="data-section">
-      <h3>Import</h3>
-      <p>Import a previously exported CSV file. This will merge with your existing data — duplicate entries are skipped.</p>
-      <input type="file" id="import-file" accept=".csv" style="display:none" onchange="importCSV(event)">
-      <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">↑ Import CSV</button>
+
+    <div class="about-section">
+      <h3>What is tendto?</h3>
+      <p>tendto is a simple tool for tracking habits, routines, and recurring tasks — and noticing how you feel about them over time. Did that daily walk feel good today, or was it a slog? Over weeks, patterns emerge that help you decide what's worth keeping, what to adjust, and what to let go.</p>
+      <p style="margin-top:10px">It works equally well for true habits (exercise, reading, sleep) and non-habitual reminders — things like calling a friend, changing your air filter, or scheduling a dentist visit.</p>
     </div>
-    <div class="data-section">
-      <h3>Clear All Data</h3>
-      <p>Permanently delete all habits and log entries from this browser. Make sure to export first!</p>
-      <button class="btn btn-danger btn-sm" onclick="clearAllData()">✕ Clear All Data</button>
+
+    <div class="about-section">
+      <h3>Getting started</h3>
+      <p>A few ideas to get you going. Mix habits with reminders — that's the point.</p>
+      <div class="example-habits">
+        <div class="example-habit"><span class="example-icon">🚶</span><div><strong>Walk 20 minutes</strong><div class="example-meta">Daily · duration · see if it improves your mood over time</div></div></div>
+        <div class="example-habit"><span class="example-icon">📖</span><div><strong>Read before bed</strong><div class="example-meta">Daily · checkbox · replace doom-scrolling, track the streak</div></div></div>
+        <div class="example-habit"><span class="example-icon">📞</span><div><strong>Call a friend or family member</strong><div class="example-meta">Every 14 days · you'll see it coming up even without push notifications</div></div></div>
+        <div class="example-habit"><span class="example-icon">🌬️</span><div><strong>Replace air filter</strong><div class="example-meta">Every 90 days · the classic thing everyone forgets</div></div></div>
+        <div class="example-habit"><span class="example-icon">💰</span><div><strong>Review budget</strong><div class="example-meta">Weekly (Sunday) · short and consistent beats thorough and never</div></div></div>
+        <div class="example-habit"><span class="example-icon">🦷</span><div><strong>Dentist visit</strong><div class="example-meta">Every 180 days · set it once, let it remind you</div></div></div>
+      </div>
+      <p class="about-tip">💡 <strong>Tip:</strong> Add at least one daily habit. That way you'll open the app regularly and catch upcoming interval reminders before they slip by — no push notifications needed.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>Your data stays yours</h3>
+      <ul class="about-list">
+        <li>🔒 Everything is stored only in <em>this browser</em> on <em>this device</em>. No account, no server, no one else sees it.</li>
+        <li>🚫 No ads. No subscriptions. No tracking.</li>
+        <li>🔔 No push notifications — by design. tendto is something you open, not something that interrupts you.</li>
+        <li>💾 <strong>Save the HTML file to your device</strong> and it works forever, even offline. Future updates to this page won't affect your saved copy.</li>
+        <li>📱 On iOS: tap Share → <em>Add to Home Screen</em>. On Android: tap Menu → <em>Add to Home Screen</em>. It opens like an app, with no browser chrome.</li>
+      </ul>
+    </div>
+
+    <div class="about-section">
+      <h3>About CSV export &amp; import</h3>
+      <p>The Export button downloads a <code>.csv</code> file — a plain text file containing all your habits and log entries. It's readable in any spreadsheet app and can be imported back into tendto on any device.</p>
+      <p style="margin-top:8px"><strong>Why this matters:</strong> since your data lives only in this browser, if you clear your browser data or switch devices, it's gone — unless you have a CSV backup. Export regularly. Import to restore or sync between devices.</p>
+      <p style="margin-top:8px">The CSV has two sections: <code>--- HABITS ---</code> (your habit definitions) and <code>--- LOGS ---</code> (every daily entry). Importing merges with existing data — duplicates are skipped automatically.</p>
+    </div>
+
+    <div class="about-section">
+      <h3>Data tools</h3>
+      <div class="data-section" style="border:none;padding:0;margin-bottom:12px">
+        <p style="margin-bottom:8px">Download all your habits and log data as a CSV file.</p>
+        <button class="btn btn-ghost btn-sm" onclick="exportCSV()">↓ Export CSV</button>
+      </div>
+      <div class="data-section" style="border:none;padding:0;margin-bottom:12px">
+        <p style="margin-bottom:8px">Import a previously exported CSV file. Merges with existing data — duplicates are skipped.</p>
+        <input type="file" id="import-file" accept=".csv" style="display:none" onchange="importCSV(event)">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('import-file').click()">↑ Import CSV</button>
+      </div>
+      <div class="data-section" style="border:none;padding:0">
+        <p style="margin-bottom:8px">Permanently delete all habits and log entries from this browser. Export first!</p>
+        <button class="btn btn-danger btn-sm" onclick="clearAllData()">✕ Clear All Data</button>
+      </div>
     </div>
   </div>
 </div>
@@ -851,7 +931,7 @@
     <input type="hidden" id="edit-habit-id">
     <div class="form-group">
       <label>Name</label>
-      <input type="text" id="h-name" placeholder="e.g. Guitar Practice">
+      <input type="text" id="h-name" placeholder="e.g. Morning walk">
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1062,6 +1142,15 @@
     flex-wrap: wrap;
   }
 
+  .drilldown-notes {
+    margin-top: 10px;
+    border-top: 1px solid var(--border-light);
+    padding-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
   /* Calendar grid */
   .cal-grid {
     display: grid;
@@ -1115,7 +1204,48 @@
     pointer-events: none;
   }
 
-  /* Report card name as link */
+  /* MOOD BUTTONS */
+  .mood-btns {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+  .mood-btn {
+    background: none;
+    border: 1.5px solid var(--border);
+    border-radius: 20px;
+    font-size: 15px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    opacity: 0.5;
+    padding: 0;
+    line-height: 1;
+  }
+  .mood-btn:hover { opacity: 1; transform: scale(1.15); }
+  .mood-btn.selected { opacity: 1; border-color: transparent; }
+  .mood-btn[data-mood="good"].selected  { background: var(--green-light); border-color: var(--green); }
+  .mood-btn[data-mood="okay"].selected  { background: var(--accent-light); border-color: var(--accent); }
+  .mood-btn[data-mood="tough"].selected { background: var(--amber-light); border-color: var(--amber); }
+
+  /* Calendar mood tint modifiers */
+  .cal-cell.mood-good  { outline: 2px solid var(--mood-good); outline-offset: -2px; }
+  .cal-cell.mood-okay  { outline: 2px solid var(--mood-okay); outline-offset: -2px; }
+  .cal-cell.mood-tough { outline: 2px solid var(--mood-tough); outline-offset: -2px; }
+
+  /* Drilldown mood badge */
+  .mood-badge {
+    display: inline-block;
+    font-size: 14px;
+    vertical-align: middle;
+    margin-left: 4px;
+  }
+
+
   .report-card-name {
     font-size: 15px;
     font-weight: 500;
@@ -1199,7 +1329,7 @@
 // DATA MODEL
 // ============================================================
 // habits: [{id, name, category, type, freq, interval, nextDue, weekDays, target, active}]
-// logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number), notes}]
+// logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number|'skip'|'pushed'), notes, mood ('good'|'okay'|'tough'|null)}]
 
 let habits = [];
 let logs = [];
@@ -1263,15 +1393,26 @@ function getLog(habitId, dateStr) {
   return logs.find(l => l.habitId === habitId && l.date === dateStr);
 }
 
-function setLog(habitId, dateStr, value, notes) {
+function setLog(habitId, dateStr, value, notes, mood) {
   const existing = logs.findIndex(l => l.habitId === habitId && l.date === dateStr);
   if (existing >= 0) {
     logs[existing].value = value;
     if (notes !== undefined) logs[existing].notes = notes;
+    if (mood !== undefined) logs[existing].mood = mood;
   } else {
-    logs.push({ id: genId(), habitId, date: dateStr, value, notes: notes !== undefined ? notes : '' });
+    logs.push({ id: genId(), habitId, date: dateStr, value, notes: notes !== undefined ? notes : '', mood: mood || null });
   }
   save();
+}
+
+function setMood(habitId, dateStr, mood) {
+  const existing = logs.findIndex(l => l.habitId === habitId && l.date === dateStr);
+  if (existing >= 0) {
+    // Toggle off if same mood clicked again
+    logs[existing].mood = logs[existing].mood === mood ? null : mood;
+    save();
+    renderDaily();
+  }
 }
 
 // ============================================================
@@ -1280,7 +1421,7 @@ function setLog(habitId, dateStr, value, notes) {
 function switchView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('nav button').forEach((b,i) => {
-    b.classList.toggle('active', ['daily','manage','report','data'][i] === name);
+    b.classList.toggle('active', ['daily','manage','report','about'][i] === name);
   });
   document.getElementById('view-' + name).classList.add('active');
   document.getElementById('date-bar').style.display = name === 'daily' ? 'flex' : 'none';
@@ -1356,10 +1497,39 @@ function openDrilldown(habitId) {
     }
     if (skipped > 0) statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:16px">${skipped}</div><div class="stat-label">Skipped</div></div>`;
 
+    // Mood summary
+    const moodCounts = {good:0, okay:0, tough:0};
+    mLogs.forEach(l => { if (l.mood && moodCounts[l.mood] !== undefined) moodCounts[l.mood]++; });
+    const moodTotal = moodCounts.good + moodCounts.okay + moodCounts.tough;
+    let moodHtml = '';
+    if (moodTotal > 0) {
+      const parts = [];
+      if (moodCounts.good)  parts.push(`😊 ${moodCounts.good}`);
+      if (moodCounts.okay)  parts.push(`😐 ${moodCounts.okay}`);
+      if (moodCounts.tough) parts.push(`😟 ${moodCounts.tough}`);
+      moodHtml = `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-family:var(--mono)">${parts.join('  ')}</div>`;
+    }
+
+    // Notes with mood for this month
+    const notedLogs = mLogs.filter(l => (l.notes && l.notes.trim()) || l.mood).sort((a,b) => b.date.localeCompare(a.date));
+    let notesHtml = '';
+    if (notedLogs.length) {
+      notesHtml = '<div class="drilldown-notes">' + notedLogs.map(l => {
+        const moodBadge = l.mood ? `<span class="mood-badge">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span>` : '';
+        const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
+        return `<div class="report-note-item">
+          <span class="report-note-date">${l.date}</span>
+          <span class="report-note-text">${moodBadge}${noteText}</span>
+        </div>`;
+      }).join('') + '</div>';
+    }
+
     html += `<div class="drilldown-month">
       <div class="drilldown-month-label">${monthNames[month]} ${year}</div>
       <div class="drilldown-stats">${statsHtml}</div>
+      ${moodHtml}
       ${calHtml}
+      ${notesHtml}
     </div>`;
   });
   html += '</div>';
@@ -1479,6 +1649,8 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
                : log.value === true
   );
   const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
+  const showMood = (isFullDone || isPartial) && mode === 'due' && !isPushed;
+  const currentMood = log ? log.mood : null;
 
   const catLabels = {health:'Health',music:'Music',chores:'Chores',family:'Family',other:'Other'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : `every ${h.interval}d`;
@@ -1495,7 +1667,6 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
 
   if (mode === 'due') {
     if (isPushed) {
-      // Pushed: show new due date, read-only
       rightContent += `<span class="coming-up-badge" style="background:#dce8f8;border-color:#a0bcd8;color:#3a6a9a">pushed → ${h.nextDue}</span>`;
     } else if (isDuration) {
       const val = (log && !isSkipped) ? (log.value || '') : '';
@@ -1524,6 +1695,13 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
       if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
         rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
       }
+    }
+    if (showMood) {
+      rightContent += `<div class="mood-btns">
+        <button class="mood-btn${currentMood === 'good' ? ' selected' : ''}" data-hid="${h.id}" data-mood="good" title="Felt good">😊</button>
+        <button class="mood-btn${currentMood === 'okay' ? ' selected' : ''}" data-hid="${h.id}" data-mood="okay" title="Felt okay">😐</button>
+        <button class="mood-btn${currentMood === 'tough' ? ' selected' : ''}" data-hid="${h.id}" data-mood="tough" title="Felt tough">😟</button>
+      </div>`;
     }
   } else {
     const dayWord = daysAway === 1 ? 'tomorrow' : `in ${daysAway} days`;
@@ -1612,6 +1790,13 @@ function attachRowListeners() {
   document.querySelectorAll('.push-btn').forEach(el => {
     el.addEventListener('click', () => {
       openPushModal(el.dataset.hid);
+    });
+  });
+
+  // Mood buttons
+  document.querySelectorAll('.mood-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      setMood(el.dataset.hid, currentDate, el.dataset.mood);
     });
   });
 }
@@ -1860,7 +2045,9 @@ function buildCalendarMonth(h, year, month, todayD) {
       }
     }
     if (isToday) cls += ' today-cell';
-    html += `<div class="${cls}" data-tip="${day}${tip ? ' · '+tip : ''}">${day}</div>`;
+    if (log && log.mood && (cls.includes('done') || cls.includes('partial'))) cls += ` mood-${log.mood}`;
+    const moodEmoji = log && log.mood ? {'good':'😊','okay':'😐','tough':'😟'}[log.mood] : '';
+    html += `<div class="${cls}" data-tip="${day}${tip ? ' · '+tip : ''}${moodEmoji ? ' '+moodEmoji : ''}">${day}</div>`;
   }
   html += '</div>';
   return html;
@@ -1982,11 +2169,16 @@ function renderReport() {
       statsHtml += `<div class="stat-item"><div class="stat-value">${skippedCount}</div><div class="stat-label">Skipped</div></div>`;
     }
 
-    // Most recent note
-    const lastNote = logs
-      .filter(l => l.habitId === h.id && l.notes && l.notes.trim())
+    // Most recent note (include mood even if no note text)
+    const lastNoted = logs
+      .filter(l => l.habitId === h.id && (l.notes && l.notes.trim() || l.mood))
       .sort((a,b) => b.date.localeCompare(a.date))[0];
-    const noteHtml = lastNote ? `<div class="report-recent-note"><span>${lastNote.date}</span>${lastNote.notes.replace(/</g,'&lt;')}</div>` : '';
+    let noteHtml = '';
+    if (lastNoted) {
+      const moodBadge = lastNoted.mood ? `<span class="mood-badge" style="margin-right:4px">${{'good':'😊','okay':'😐','tough':'😟'}[lastNoted.mood]}</span>` : '';
+      const noteText = lastNoted.notes ? lastNoted.notes.replace(/</g,'&lt;') : '';
+      noteHtml = `<div class="report-recent-note"><span>${lastNoted.date}</span>${moodBadge}${noteText}</div>`;
+    }
 
     // Calendar for current month
     const calHtml = buildCalendarMonth(h, year, month, todayD);
@@ -2032,16 +2224,16 @@ function exportCSV() {
     csv += `${h.id},"${h.name.replace(/"/g,'""')}",${h.category},${h.type},${h.freq},${h.interval||''},${h.nextDue||''},"${(h.weekDays||[]).join('|')}",${h.target||''}\n`;
   });
   csv += '\n--- LOGS ---\n';
-  csv += 'id,habitId,date,value,notes\n';
+  csv += 'id,habitId,date,value,mood,notes\n';
   logs.forEach(l => {
-    csv += `${l.id},${l.habitId},${l.date},${l.value},"${(l.notes||'').replace(/"/g,'""')}"\n`;
+    csv += `${l.id},${l.habitId},${l.date},${l.value},${l.mood||''},"${(l.notes||'').replace(/"/g,'""')}"\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `habitlog-export-${todayStr()}.csv`;
+  a.download = `tendto-export-${todayStr()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
   showToast('Exported successfully', 'success');
@@ -2085,10 +2277,15 @@ function importCSV(event) {
       logLines.forEach(line => {
         if (!line.trim()) return;
         const parts = parseCSVLine(line);
-        const [id, habitId, date, value, notes] = parts;
+        // Support both old format (id,habitId,date,value,notes) and new (id,habitId,date,value,mood,notes)
+        const [id, habitId, date, value] = parts;
+        const hasMoodCol = parts.length >= 6;
+        const mood = hasMoodCol ? (parts[4] || null) : null;
+        const notes = hasMoodCol ? parts[5] : parts[4];
         if (!id || logs.find(l => l.id === id)) return;
         const parsedValue = value === 'true' ? true : value === 'false' ? false : (value === 'skip' || value === 'pushed') ? value : Number(value);
-        logs.push({ id, habitId, date, value: parsedValue, notes: (notes||'').replace(/^"|"$/g,'').replace(/""/g,'"') });
+        const parsedMood = (mood === 'good' || mood === 'okay' || mood === 'tough') ? mood : null;
+        logs.push({ id, habitId, date, value: parsedValue, mood: parsedMood, notes: (notes||'').replace(/^"|"$/g,'').replace(/""/g,'"') });
         logsAdded++;
       });
 
@@ -2150,35 +2347,6 @@ function init() {
   load();
   renderDateBar();
   renderDaily();
-
-  // Seed demo data if empty
-  if (!habits.length) {
-    const today = todayStr();
-    const nextMon = (() => {
-      const d = dateFromStr(today);
-      const daysUntil = (1 - d.getDay() + 7) % 7 || 7;
-      return addDays(today, daysUntil);
-    })();
-    habits = [
-      // ── DAILY ─────────────────────────────────────────────
-      { id: genId(), name: 'Guitar Practice',        category: 'music',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 30,   active: true },
-      { id: genId(), name: 'Exercise',               category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: null, active: true },
-      { id: genId(), name: 'Read',                   category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 20,   active: true },
-      { id: genId(), name: 'Meditate',               category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 10,   active: true },
-      { id: genId(), name: 'In Bed by 10:30pm',      category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: null, active: true },
-      // ── WEEKLY ────────────────────────────────────────────
-      { id: genId(), name: 'Take Out Trash',         category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [1], target: null, active: true },
-      { id: genId(), name: 'Grocery Shop',           category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [6], target: null, active: true },
-      { id: genId(), name: 'Review Budget',          category: 'other',   type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [0], target: null, active: true },
-      // ── INTERVAL ──────────────────────────────────────────
-      { id: genId(), name: 'Call Mama',              category: 'family',  type: 'checkbox', freq: 'interval', interval: 7,   nextDue: today,               weekDays: [],  target: null, active: true },
-      { id: genId(), name: 'Get a Haircut',          category: 'other',   type: 'checkbox', freq: 'interval', interval: 21,  nextDue: today,               weekDays: [],  target: null, active: true },
-      { id: genId(), name: 'Check In with a Friend', category: 'family',  type: 'checkbox', freq: 'interval', interval: 14,  nextDue: addDays(today, 3),   weekDays: [],  target: null, active: true },
-      { id: genId(), name: 'Dentist Visit',          category: 'health',  type: 'checkbox', freq: 'interval', interval: 180, nextDue: addDays(today, 90),  weekDays: [],  target: null, active: true },
-    ];
-    save();
-    renderDaily();
-  }
 }
 
 init();
