@@ -170,6 +170,19 @@
   .habit-row.completed { background: var(--green-light); border-color: #a8d8c0; }
   .habit-row.completed .habit-name { color: var(--text-dim); text-decoration: line-through; text-decoration-color: #a8d8c0; }
   .habit-row.due-today { border-left: 3px solid var(--accent); }
+  /* Pushed: in Today section but not actually due — steel blue left border, cool tint */
+  .habit-row.pushed {
+    background: #f0f5fc;
+    border-color: #b0c8e8;
+    border-left: 3px solid #5b8ec4;
+    opacity: 0.88;
+  }
+  .habit-row.pushed .habit-name { color: var(--text-dim); }
+  /* Partial: duration logged but under target — soft lavender, distinct from skipped yellow */
+  .habit-row.partial-done {
+    background: #f4f0fa;
+    border-color: #c8b8e8;
+  }
 
   /* Coming up section rows — visually quieter */
   .habit-row.coming-up {
@@ -739,9 +752,22 @@
   .toast.error { background: var(--red); }
 
   @media (max-width: 600px) {
-    .notes-input { width: 100px; }
+    .habit-row {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .habit-info {
+      /* Take up full width so controls drop to next line */
+      flex-basis: 100%;
+      min-width: 0;
+    }
+    .habit-name { white-space: normal; }
+    .notes-input { width: 100%; flex-basis: 100%; }
+    .notes-input { order: 10; } /* push notes to last */
+    .duration-input input { width: 52px; }
     .stat-value { font-size: 18px; }
     .heatmap-cell { width: 10px; height: 10px; }
+    .digest-habit-name { min-width: 100px; font-size: 12px; }
   }
 </style>
 </head>
@@ -1211,13 +1237,18 @@ function renderDaily() {
   habits.forEach(h => {
     const d = daysUntilDue(h, currentDate);
     if (d === 0 || isDueOn(h, currentDate)) {
-      dueNow.push(h);
+      dueNow.push({ habit: h, pushed: false });
+    } else if (isToday && h.freq === 'interval' && h.nextDue && h.nextDue > currentDate) {
+      // Pushed: was due today or earlier but got pushed — show in Today with steel blue
+      const log = getLog(h.id, currentDate);
+      if (log && log.value === 'pushed') {
+        dueNow.push({ habit: h, pushed: true });
+      }
     } else if (isToday && d !== null && d > 0 && d <= 3) {
       comingUp.push({ habit: h, daysAway: d });
     }
   });
 
-  // Sort coming up by days away
   comingUp.sort((a, b) => a.daysAway - b.daysAway);
 
   let html = '';
@@ -1229,7 +1260,7 @@ function renderDaily() {
   if (dueNow.length) {
     html += `<div class="section-label">Today</div>`;
     html += '<div class="habits-list">';
-    dueNow.forEach(h => { html += buildHabitRow(h, 'due'); });
+    dueNow.forEach(({ habit: h, pushed }) => { html += buildHabitRow(h, 'due', null, pushed); });
     html += '</div>';
   }
 
@@ -1246,44 +1277,62 @@ function renderDaily() {
   attachRowListeners();
 }
 
-function buildHabitRow(h, mode, daysAway) {
+function buildHabitRow(h, mode, daysAway, isPushed) {
   const log = getLog(h.id, currentDate);
   const isSkipped = log && log.value === 'skip';
-  const isCompleted = !isSkipped && log && (h.type === 'checkbox' ? log.value === true : (Number(log.value) > 0));
+  const isDuration = h.type === 'duration';
+  const logVal = log && !isSkipped ? log.value : null;
+  const hasValue = logVal !== null && logVal !== '' && logVal !== false;
+  const isFullDone = !isSkipped && log && (
+    isDuration ? (Number(logVal) > 0 && (!h.target || Number(logVal) >= Number(h.target)))
+               : log.value === true
+  );
+  const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
+
   const catLabels = {health:'Health',music:'Music',chores:'Chores',family:'Family',other:'Other'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : `every ${h.interval}d`;
 
   let rowClass = 'habit-row';
-  if (mode === 'due') rowClass += ' due-today';
+  if (mode === 'due' && !isPushed) rowClass += ' due-today';
   if (mode === 'coming') rowClass += ' coming-up';
-  if (isCompleted) rowClass += ' completed';
+  if (isPushed) rowClass += ' pushed';
+  if (isFullDone) rowClass += ' completed';
   if (isSkipped) rowClass += ' skipped';
+  if (isPartial) rowClass += ' partial-done';
 
   let rightContent = '';
 
   if (mode === 'due') {
-    if (h.type === 'duration') {
+    if (isPushed) {
+      // Pushed: show new due date, read-only
+      rightContent += `<span class="coming-up-badge" style="background:#dce8f8;border-color:#a0bcd8;color:#3a6a9a">pushed → ${h.nextDue}</span>`;
+    } else if (isDuration) {
       const val = (log && !isSkipped) ? (log.value || '') : '';
-      const targetMet = h.target && val !== '' && Number(val) >= Number(h.target);
       rightContent += `<div class="duration-input">
         <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes" ${isSkipped ? 'disabled' : ''}>
         <span class="unit">min</span>
       </div>`;
       if (h.target && !isSkipped) {
+        const targetMet = val !== '' && Number(val) >= Number(h.target);
         rightContent += `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>`;
       }
+      const notesVal = (log && log.notes) ? log.notes : '';
+      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
+      const skipActive = isSkipped ? ' active' : '';
+      rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
+      if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
+        rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
+      }
     } else {
-      const chkClass = 'habit-check' + (isCompleted ? ' checked' : '');
+      const chkClass = 'habit-check' + (isFullDone ? ' checked' : '');
       rightContent += `<div class="${chkClass}" data-hid="${h.id}" title="Mark complete" ${isSkipped ? 'style="pointer-events:none;opacity:0.4"' : ''}></div>`;
-    }
-    const notesVal = (log && log.notes) ? log.notes : '';
-    rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
-    // Skip button
-    const skipActive = isSkipped ? ' active' : '';
-    rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-    // Push for interval habits
-    if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
-      rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
+      const notesVal = (log && log.notes) ? log.notes : '';
+      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
+      const skipActive = isSkipped ? ' active' : '';
+      rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
+      if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
+        rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
+      }
     }
   } else {
     const dayWord = daysAway === 1 ? 'tomorrow' : `in ${daysAway} days`;
@@ -1562,6 +1611,8 @@ function confirmPush() {
   const h = habits.find(x => x.id === pushingHabitId);
   if (!h) return;
   h.nextDue = newDate;
+  // Log a 'pushed' marker on today so the row stays visible with steel blue styling
+  setLog(h.id, todayStr(), 'pushed', `pushed to ${newDate}`);
   save();
   closePushModal();
   renderDaily();
@@ -1859,9 +1910,13 @@ function importCSV(event) {
         if (!line.trim()) return;
         const parts = parseCSVLine(line);
         const [id, name, category, type, freq, interval, nextDue, weekDaysStr, target] = parts;
-        if (!id || habits.find(h => h.id === id)) return;
+        const cleanName = name.replace(/^"|"$/g,'');
+        // Deduplicate: skip if same ID OR same name+freq+category already exists
+        if (!id) return;
+        if (habits.find(h => h.id === id)) return;
+        if (habits.find(h => h.name === cleanName && h.freq === freq && h.category === category)) return;
         habits.push({
-          id, name: name.replace(/^"|"$/g,''), category, type, freq,
+          id, name: cleanName, category, type, freq,
           interval: interval ? Number(interval) : null,
           nextDue: nextDue || null,
           weekDays: weekDaysStr ? weekDaysStr.replace(/^"|"$/g,'').split('|').map(Number).filter(n => !isNaN(n)) : [],
@@ -1949,30 +2004,21 @@ function init() {
       return addDays(today, daysUntil);
     })();
     habits = [
-      // ── YOUR HABITS (already in use) ──────────────────────
-      { id: genId(), name: 'Guitar Practice',   category: 'music',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: 30,   active: true },
-      { id: genId(), name: 'Exercise Routine',  category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Get a Haircut',      category: 'other',   type: 'checkbox', freq: 'interval', interval: 21,   nextDue: today,                  weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Call Mama',          category: 'family',  type: 'checkbox', freq: 'interval', interval: 7,    nextDue: today,                  weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Take Out Trash',     category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                   weekDays: [1],   target: null, active: true },
-
-      // ── MOST-TRACKED: HEALTH & BODY ────────────────────────
-      { id: genId(), name: 'Drink 8 Glasses of Water', category: 'health', type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,             weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Go for a Walk',      category: 'health',  type: 'duration', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: 20,   active: true },
-      { id: genId(), name: 'In Bed by 10:30pm',  category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: null, active: true },
-
-      // ── MOST-TRACKED: MIND & WELLBEING ────────────────────
-      { id: genId(), name: 'Meditate',           category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: 10,   active: true },
-      { id: genId(), name: 'Read',               category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: 20,   active: true },
-      { id: genId(), name: 'Write in Journal',   category: 'other',   type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                   weekDays: [],    target: null, active: true },
-
-      // ── MOST-TRACKED: RECURRING MAINTENANCE ───────────────
-      { id: genId(), name: 'Review Budget',      category: 'other',   type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                   weekDays: [0],   target: null, active: true },
-      { id: genId(), name: 'Grocery Shop',       category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                   weekDays: [6],   target: null, active: true },
-      { id: genId(), name: 'Clean the House',    category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                   weekDays: [6],   target: null, active: true },
-      { id: genId(), name: 'Check In with a Friend', category: 'family', type: 'checkbox', freq: 'interval', interval: 14, nextDue: addDays(today, 3),    weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Car Oil Change',     category: 'other',   type: 'checkbox', freq: 'interval', interval: 90,  nextDue: addDays(today, 45),      weekDays: [],    target: null, active: true },
-      { id: genId(), name: 'Dentist Visit',      category: 'health',  type: 'checkbox', freq: 'interval', interval: 180, nextDue: addDays(today, 90),      weekDays: [],    target: null, active: true },
+      // ── DAILY ─────────────────────────────────────────────
+      { id: genId(), name: 'Guitar Practice',        category: 'music',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 30,   active: true },
+      { id: genId(), name: 'Exercise',               category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: null, active: true },
+      { id: genId(), name: 'Read',                   category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 20,   active: true },
+      { id: genId(), name: 'Meditate',               category: 'other',   type: 'duration', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: 10,   active: true },
+      { id: genId(), name: 'In Bed by 10:30pm',      category: 'health',  type: 'checkbox', freq: 'daily',    interval: null, nextDue: null,                weekDays: [],  target: null, active: true },
+      // ── WEEKLY ────────────────────────────────────────────
+      { id: genId(), name: 'Take Out Trash',         category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [1], target: null, active: true },
+      { id: genId(), name: 'Grocery Shop',           category: 'chores',  type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [6], target: null, active: true },
+      { id: genId(), name: 'Review Budget',          category: 'other',   type: 'checkbox', freq: 'weekly',   interval: null, nextDue: null,                weekDays: [0], target: null, active: true },
+      // ── INTERVAL ──────────────────────────────────────────
+      { id: genId(), name: 'Call Mama',              category: 'family',  type: 'checkbox', freq: 'interval', interval: 7,   nextDue: today,               weekDays: [],  target: null, active: true },
+      { id: genId(), name: 'Get a Haircut',          category: 'other',   type: 'checkbox', freq: 'interval', interval: 21,  nextDue: today,               weekDays: [],  target: null, active: true },
+      { id: genId(), name: 'Check In with a Friend', category: 'family',  type: 'checkbox', freq: 'interval', interval: 14,  nextDue: addDays(today, 3),   weekDays: [],  target: null, active: true },
+      { id: genId(), name: 'Dentist Visit',          category: 'health',  type: 'checkbox', freq: 'interval', interval: 180, nextDue: addDays(today, 90),  weekDays: [],  target: null, active: true },
     ];
     save();
     renderDaily();
