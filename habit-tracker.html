@@ -869,13 +869,14 @@
 
     <div class="about-section">
       <h3>What is tendto?</h3>
-      <p>tendto is a simple tool for tracking habits, routines, and recurring tasks — and noticing how you feel about them over time. Did that daily walk feel good today, or was it a slog? Over weeks, patterns emerge that help you decide what's worth keeping, what to adjust, and what to let go.</p>
+      <p>tendto is a simple tool for tracking tasks, habits, and recurring reminders — and noticing how you feel about them over time. Did that daily walk feel good today, or was it a slog? Over weeks, patterns emerge that help you decide what's worth keeping, what to adjust, and what to let go.</p>
       <p style="margin-top:10px">It works equally well for true habits (exercise, reading, sleep) and non-habitual reminders — things like calling a friend, changing your air filter, or scheduling a dentist visit.</p>
+      <p style="margin-top:10px"><strong>What's a web app?</strong> tendto is a single web page — just an HTML file. There's nothing to install, no app store, no account to create. It runs entirely in your browser, which means your data never leaves your device. You can save the file itself to keep a permanent, offline copy that works forever even if this URL disappears. It looks and feels like an app, but it's just a file.</p>
     </div>
 
     <div class="about-section">
       <h3>Getting started</h3>
-      <p>A few ideas to get you going. Mix habits with reminders — that's the point.</p>
+      <p>Start by adding your first task — tap <strong>Habits</strong> in the menu, then <strong>+ Add Habit</strong>. Not sure what to add? Here are a few ideas to mix habits with reminders:</p>
       <div class="example-habits">
         <div class="example-habit"><span class="example-icon">🚶</span><div><strong>Walk 20 minutes</strong><div class="example-meta">Daily · duration · see if it improves your mood over time</div></div></div>
         <div class="example-habit"><span class="example-icon">📖</span><div><strong>Read before bed</strong><div class="example-meta">Daily · checkbox · replace doom-scrolling, track the streak</div></div></div>
@@ -894,8 +895,17 @@
         <li>🚫 No ads. No subscriptions. No tracking.</li>
         <li>🔔 No push notifications — by design. tendto is something you open, not something that interrupts you.</li>
         <li>💾 <strong>Save the HTML file to your device</strong> and it works forever, even offline. Future updates to this page won't affect your saved copy.</li>
-        <li>📱 On iOS: tap Share → <em>Add to Home Screen</em>. On Android: tap Menu → <em>Add to Home Screen</em>. It opens like an app, with no browser chrome.</li>
       </ul>
+    </div>
+
+    <div class="about-section">
+      <h3>Add tendto to your home screen</h3>
+      <p>If you're liking tendto and want it to feel more like a part of your phone, you can add it to your home screen. It will open like an app — no browser address bar, no clutter.</p>
+      <ul class="about-list" style="margin-top:10px">
+        <li>📱 <strong>iPhone/iPad:</strong> tap the Share button (the box with an arrow) → <em>Add to Home Screen</em></li>
+        <li>🤖 <strong>Android:</strong> tap the browser menu (three dots) → <em>Add to Home Screen</em></li>
+      </ul>
+      <p style="margin-top:10px;font-size:13px;color:var(--text-muted)">Note: if you add it to your home screen from a URL, you'll need an internet connection to open it. To use it fully offline, save the HTML file to your device first, then open it from your Files app and add that to your home screen.</p>
     </div>
 
     <div class="about-section">
@@ -933,14 +943,18 @@
       <label>Name</label>
       <input type="text" id="h-name" placeholder="e.g. Morning walk">
     </div>
+    <div class="form-group" id="phone-group" style="display:none">
+      <label>Phone number <span style="font-style:italic;font-weight:300;text-transform:none">(optional — for tap-to-call)</span></label>
+      <input type="tel" id="h-phone" placeholder="e.g. 555-867-5309">
+    </div>
     <div class="form-row">
       <div class="form-group">
         <label>Category</label>
-        <select id="h-category">
+        <select id="h-category" onchange="onCategoryChange()">
           <option value="health">Health</option>
-          <option value="music">Music</option>
+          <option value="people">People</option>
           <option value="chores">Chores</option>
-          <option value="family">Family</option>
+          <option value="creative">Creative</option>
           <option value="other">Other</option>
         </select>
       </div>
@@ -1204,6 +1218,16 @@
     pointer-events: none;
   }
 
+  .call-link {
+    text-decoration: none;
+    font-size: 14px;
+    vertical-align: middle;
+    margin-left: 4px;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+  }
+  .call-link:hover { opacity: 1; }
+
   /* MOOD BUTTONS */
   .mood-btns {
     display: flex;
@@ -1254,6 +1278,38 @@
     text-decoration: none;
   }
   .report-card-name:hover { text-decoration: underline; }
+
+  /* People-style report card */
+  .report-card-people { border-left: 3px solid var(--accent); }
+  .report-notes-list {
+    margin-top: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .report-notes-list .report-note-item {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 7px 10px;
+  }
+  .report-notes-list .report-note-text {
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+  /* Collapsible calendar for people cards */
+  .cal-details { margin-top: 10px; }
+  .cal-details summary {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 0;
+    list-style: none;
+  }
+  .cal-details summary::before { content: '▸ '; }
+  .cal-details[open] summary::before { content: '▾ '; }
 
   /* Most recent note on card */
   .report-recent-note {
@@ -1328,7 +1384,7 @@
 // ============================================================
 // DATA MODEL
 // ============================================================
-// habits: [{id, name, category, type, freq, interval, nextDue, weekDays, target, active}]
+// habits: [{id, name, category, type, freq, interval, nextDue, weekDays, target, phone, active}]
 // logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number|'skip'|'pushed'), notes, mood ('good'|'okay'|'tough'|null)}]
 
 let habits = [];
@@ -1587,7 +1643,7 @@ function daysUntilDue(habit, fromDate) {
 function renderDaily() {
   const container = document.getElementById('daily-content');
   if (!habits.length) {
-    container.innerHTML = '<div class="empty-state">No habits yet.<br>Head to <strong>Habits</strong> to add some.</div>';
+    container.innerHTML = '<div class="empty-state">No tasks yet.<br>Head to <strong>Habits</strong> to add your first task.</div>';
     return;
   }
 
@@ -1597,19 +1653,30 @@ function renderDaily() {
 
   habits.forEach(h => {
     const d = daysUntilDue(h, currentDate);
-    if (d === 0 || isDueOn(h, currentDate)) {
+    const log = getLog(h.id, currentDate);
+
+    // Interval habit completed today: nextDue already advanced, but keep visible all day
+    if (h.freq === 'interval' && log && log.value !== 'pushed' && log.value !== 'skip' &&
+        (log.value === true || (typeof log.value === 'number' && log.value > 0))) {
+      dueNow.push({ habit: h, pushed: false });
+    } else if (d === 0 || isDueOn(h, currentDate)) {
       dueNow.push({ habit: h, pushed: false });
     } else if (isToday && h.freq === 'interval' && h.nextDue && h.nextDue > currentDate) {
       // Pushed: was due today or earlier but got pushed — show in Today with steel blue
-      const log = getLog(h.id, currentDate);
       if (log && log.value === 'pushed') {
         dueNow.push({ habit: h, pushed: true });
       }
+    } else if (!isToday && h.freq === 'interval' && log && log.value !== 'pushed') {
+      // Past date: show completed/skipped interval tasks when navigating back
+      dueNow.push({ habit: h, pushed: false });
     } else if (isToday && d !== null && d > 0 && d <= 3) {
       comingUp.push({ habit: h, daysAway: d });
     }
   });
 
+  // Sort by category so same-category tasks cluster together
+  const catOrder = {health:0, people:1, chores:2, creative:3, other:4, family:1, music:3};
+  dueNow.sort((a, b) => (catOrder[a.habit.category]??4) - (catOrder[b.habit.category]??4));
   comingUp.sort((a, b) => a.daysAway - b.daysAway);
 
   let html = '';
@@ -1652,7 +1719,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   const showMood = (isFullDone || isPartial) && mode === 'due' && !isPushed;
   const currentMood = log ? log.mood : null;
 
-  const catLabels = {health:'Health',music:'Music',chores:'Chores',family:'Family',other:'Other'};
+  const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : `every ${h.interval}d`;
 
   let rowClass = 'habit-row';
@@ -1710,7 +1777,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
 
   return `<div class="${rowClass}" data-hid="${h.id}">
     <div class="habit-info">
-      <div class="habit-name">${h.name}</div>
+      <div class="habit-name">${h.name}${h.phone ? ` <a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link" title="Call ${h.name}">📞</a>` : ''}</div>
       <div class="habit-meta">
         <span class="tag cat">${catLabels[h.category] || h.category}</span>
         <span class="tag">${freqLabel}</span>
@@ -1811,7 +1878,7 @@ function renderManage() {
     return;
   }
 
-  const catLabels = {health:'Health',music:'Music',chores:'Chores',family:'Family',other:'Other'};
+  const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   let html = '';
   habits.forEach(h => {
     const freqLabel = h.freq === 'daily' ? 'Daily' :
@@ -1858,6 +1925,8 @@ function openHabitModal(editId) {
   // Reset
   document.getElementById('h-name').value = '';
   document.getElementById('h-category').value = 'health';
+  document.getElementById('h-phone').value = '';
+  document.getElementById('phone-group').style.display = 'none';
   document.getElementById('h-type').value = 'checkbox';
   document.getElementById('h-freq').value = 'daily';
   document.getElementById('h-target').value = '';
@@ -1872,6 +1941,7 @@ function openHabitModal(editId) {
     if (!h) return;
     document.getElementById('h-name').value = h.name;
     document.getElementById('h-category').value = h.category;
+    document.getElementById('h-phone').value = h.phone || '';
     document.getElementById('h-type').value = h.type;
     document.getElementById('h-freq').value = h.freq;
     document.getElementById('h-target').value = h.target || '';
@@ -1889,12 +1959,18 @@ function openHabitModal(editId) {
   }
 
   onTypeChange();
+  onCategoryChange();
   document.getElementById('habit-modal').classList.add('open');
   setTimeout(() => document.getElementById('h-name').focus(), 50);
 }
 
 function closeHabitModal() {
   document.getElementById('habit-modal').classList.remove('open');
+}
+
+function onCategoryChange() {
+  const cat = document.getElementById('h-category').value;
+  document.getElementById('phone-group').style.display = cat === 'people' ? 'block' : 'none';
 }
 
 function onTypeChange() {
@@ -1944,6 +2020,7 @@ function saveHabit() {
     nextDue: freq === 'interval' ? nextDue : null,
     weekDays: freq === 'weekly' ? weekDays : [],
     target,
+    phone: document.getElementById('h-phone').value.trim() || null,
     active: true
   };
 
@@ -2141,9 +2218,13 @@ function renderReport() {
     return;
   }
 
+  const catOrder = {health:0, people:1, chores:2, creative:3, other:4, family:1, music:3};
+  const sortedHabits = [...displayHabits].sort((a,b) => (catOrder[a.category]??4) - (catOrder[b.category]??4));
+
   let html = buildWeeklyDigest(todayD);
 
-  displayHabits.forEach(h => {
+  sortedHabits.forEach(h => {
+    const isPeople = h.category === 'people' || h.category === 'family';
     // Stats for current month only
     const lastOfMonth = `${year}-${String(month+1).padStart(2,'0')}-${new Date(year, month+1, 0).getDate()}`;
     const mLogs = logs.filter(l => l.habitId === h.id && l.date >= firstOfMonth && l.date <= todayD);
@@ -2155,7 +2236,7 @@ function renderReport() {
     });
     const avgMinutes = completedCount > 0 ? Math.round(totalMinutes / completedCount) : 0;
 
-    // Stats block — no % anywhere
+    // Stats block
     let statsHtml = '';
     if (h.type === 'duration') {
       statsHtml = `
@@ -2169,28 +2250,56 @@ function renderReport() {
       statsHtml += `<div class="stat-item"><div class="stat-value">${skippedCount}</div><div class="stat-label">Skipped</div></div>`;
     }
 
-    // Most recent note (include mood even if no note text)
-    const lastNoted = logs
+    // All notes + mood (people: all entries; others: most recent only)
+    const notedLogs = logs
       .filter(l => l.habitId === h.id && (l.notes && l.notes.trim() || l.mood))
-      .sort((a,b) => b.date.localeCompare(a.date))[0];
-    let noteHtml = '';
-    if (lastNoted) {
-      const moodBadge = lastNoted.mood ? `<span class="mood-badge" style="margin-right:4px">${{'good':'😊','okay':'😐','tough':'😟'}[lastNoted.mood]}</span>` : '';
-      const noteText = lastNoted.notes ? lastNoted.notes.replace(/</g,'&lt;') : '';
-      noteHtml = `<div class="report-recent-note"><span>${lastNoted.date}</span>${moodBadge}${noteText}</div>`;
+      .sort((a,b) => b.date.localeCompare(a.date));
+
+    let notesHtml = '';
+    if (isPeople && notedLogs.length) {
+      // People: prominent notes list, all entries
+      const entries = notedLogs.slice(0, 6).map(l => {
+        const moodBadge = l.mood ? `<span class="mood-badge">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span> ` : '';
+        const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
+        return `<div class="report-note-item">
+          <span class="report-note-date">${l.date}</span>
+          <span class="report-note-text">${moodBadge}${noteText}</span>
+        </div>`;
+      }).join('');
+      notesHtml = `<div class="report-notes-list">${entries}</div>`;
+    } else if (notedLogs[0]) {
+      const l = notedLogs[0];
+      const moodBadge = l.mood ? `<span class="mood-badge" style="margin-right:4px">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span>` : '';
+      const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
+      notesHtml = `<div class="report-recent-note"><span>${l.date}</span>${moodBadge}${noteText}</div>`;
     }
 
-    // Calendar for current month
     const calHtml = buildCalendarMonth(h, year, month, todayD);
+    const phoneLink = h.phone ? `<a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link" style="font-size:13px;margin-left:6px;opacity:0.6" title="Call">📞</a>` : '';
 
-    html += `<div class="report-card">
-      <div class="report-card-header">
-        <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗</div>
-        <div class="report-stats">${statsHtml}</div>
-      </div>
-      ${calHtml}
-      ${noteHtml}
-    </div>`;
+    if (isPeople) {
+      // People card: notes-first, calendar smaller / secondary
+      html += `<div class="report-card report-card-people">
+        <div class="report-card-header">
+          <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗${phoneLink}</div>
+          <div class="report-stats">${statsHtml}</div>
+        </div>
+        ${notesHtml}
+        <details class="cal-details">
+          <summary>Calendar</summary>
+          ${calHtml}
+        </details>
+      </div>`;
+    } else {
+      html += `<div class="report-card">
+        <div class="report-card-header">
+          <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗</div>
+          <div class="report-stats">${statsHtml}</div>
+        </div>
+        ${calHtml}
+        ${notesHtml}
+      </div>`;
+    }
   });
 
   container.innerHTML = html;
