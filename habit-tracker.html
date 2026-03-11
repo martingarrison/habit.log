@@ -758,6 +758,14 @@
   .toast.success { background: var(--green); }
   .toast.error { background: #c04a3a; }
 
+  .empty-state .link-btn {
+    color: var(--accent);
+    cursor: pointer;
+    font-weight: 500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   /* ABOUT PAGE */
   .about-section {
     background: var(--surface);
@@ -807,7 +815,7 @@
     <div class="logo">tend<span>to</span></div>
     <nav>
       <button class="active" onclick="switchView('daily')">Today</button>
-      <button onclick="switchView('manage')">Habits</button>
+      <button onclick="switchView('manage')">Tasks</button>
       <button onclick="switchView('report')">Reports</button>
       <button onclick="switchView('about')">About</button>
     </nav>
@@ -835,8 +843,8 @@
   <!-- MANAGE VIEW -->
   <div class="view" id="view-manage">
     <div class="manage-header">
-      <h2>Your Habits</h2>
-      <button class="btn btn-primary btn-sm" onclick="openHabitModal()">+ Add Habit</button>
+      <h2>Your Tasks</h2>
+      <button class="btn btn-primary btn-sm" onclick="openHabitModal()">+ Add Task</button>
     </div>
     <div id="manage-list"></div>
   </div>
@@ -845,7 +853,7 @@
   <div class="view" id="view-report">
     <div class="report-controls">
       <select id="report-habit" onchange="renderReport()">
-        <option value="all">All habits</option>
+        <option value="all">All tasks</option>
       </select>
     </div>
     <div id="report-content" class="report-grid"></div>
@@ -856,6 +864,7 @@
     <div class="drilldown-header">
       <button class="btn btn-ghost btn-sm" onclick="closeDrilldown()">← Back</button>
       <h2 id="drilldown-title"></h2>
+      <a id="drilldown-call" class="call-link" style="display:none;font-size:20px" title="Call">📞</a>
     </div>
     <div id="drilldown-content"></div>
   </div>
@@ -876,7 +885,7 @@
 
     <div class="about-section">
       <h3>Getting started</h3>
-      <p>Start by adding your first task — tap <strong>Habits</strong> in the menu, then <strong>+ Add Habit</strong>. Not sure what to add? Here are a few ideas to mix habits with reminders:</p>
+      <p>Start by adding your first task — tap <strong>Tasks</strong> in the menu, then <strong>+ Add Task</strong>. Not sure what to add? Here are a few ideas to mix habits with reminders:</p>
       <div class="example-habits">
         <div class="example-habit"><span class="example-icon">🚶</span><div><strong>Walk 20 minutes</strong><div class="example-meta">Daily · duration · see if it improves your mood over time</div></div></div>
         <div class="example-habit"><span class="example-icon">📖</span><div><strong>Read before bed</strong><div class="example-meta">Daily · checkbox · replace doom-scrolling, track the streak</div></div></div>
@@ -937,7 +946,7 @@
 <!-- HABIT MODAL -->
 <div class="modal-overlay" id="habit-modal">
   <div class="modal">
-    <h3 id="modal-title">Add Habit</h3>
+    <h3 id="modal-title">Add Task</h3>
     <input type="hidden" id="edit-habit-id">
     <div class="form-group">
       <label>Name</label>
@@ -951,6 +960,7 @@
       <div class="form-group">
         <label>Category</label>
         <select id="h-category" onchange="onCategoryChange()">
+          <option value="" disabled selected>Choose a category…</option>
           <option value="health">Health</option>
           <option value="people">People</option>
           <option value="chores">Chores</option>
@@ -1502,6 +1512,14 @@ function openDrilldown(habitId) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('view-drilldown').classList.add('active');
   document.getElementById('drilldown-title').textContent = h.name;
+  // Add call link for people tasks with a phone number
+  const callLink = document.getElementById('drilldown-call');
+  if (h.phone && (h.category === 'people' || h.category === 'family')) {
+    callLink.href = `tel:${h.phone.replace(/[^0-9+]/g,'')}`;
+    callLink.style.display = 'inline';
+  } else {
+    callLink.style.display = 'none';
+  }
 
   // Find earliest log date for this habit
   const habitLogs = logs.filter(l => l.habitId === h.id);
@@ -1643,7 +1661,7 @@ function daysUntilDue(habit, fromDate) {
 function renderDaily() {
   const container = document.getElementById('daily-content');
   if (!habits.length) {
-    container.innerHTML = '<div class="empty-state">No tasks yet.<br>Head to <strong>Habits</strong> to add your first task.</div>';
+    container.innerHTML = '<div class="empty-state">No tasks yet.<br><span class="link-btn" onclick="switchView(\'manage\')">+ Add your first task</span></div>';
     return;
   }
 
@@ -1874,7 +1892,7 @@ function attachRowListeners() {
 function renderManage() {
   const container = document.getElementById('manage-list');
   if (!habits.length) {
-    container.innerHTML = '<div class="empty-state">No habits yet. Click <strong>+ Add Habit</strong> to get started.</div>';
+    container.innerHTML = '<div class="empty-state">No tasks yet. Click <strong>+ Add Task</strong> to get started.</div>';
     return;
   }
 
@@ -1919,12 +1937,12 @@ function deleteHabit(id) {
 // HABIT MODAL
 // ============================================================
 function openHabitModal(editId) {
-  document.getElementById('modal-title').textContent = editId ? 'Edit Habit' : 'Add Habit';
+  document.getElementById('modal-title').textContent = editId ? 'Edit Task' : 'Add Task';
   document.getElementById('edit-habit-id').value = editId || '';
 
   // Reset
   document.getElementById('h-name').value = '';
-  document.getElementById('h-category').value = 'health';
+  document.getElementById('h-category').value = '';
   document.getElementById('h-phone').value = '';
   document.getElementById('phone-group').style.display = 'none';
   document.getElementById('h-type').value = 'checkbox';
@@ -1994,6 +2012,9 @@ function saveHabit() {
   const name = document.getElementById('h-name').value.trim();
   if (!name) { showToast('Name is required', 'error'); return; }
 
+  const category = document.getElementById('h-category').value;
+  if (!category) { showToast('Choose a category', 'error'); return; }
+
   const freq = document.getElementById('h-freq').value;
   const interval = Number(document.getElementById('h-interval').value);
   const nextDue = document.getElementById('h-next-due').value;
@@ -2034,7 +2055,7 @@ function saveHabit() {
   save();
   closeHabitModal();
   renderManage();
-  showToast(editId ? 'Habit updated' : 'Habit added', 'success');
+  showToast(editId ? 'Task updated' : 'Task added', 'success');
 }
 
 // ============================================================
@@ -2192,7 +2213,7 @@ function buildWeeklyDigest(todayD) {
 function renderReport() {
   const sel = document.getElementById('report-habit');
   const currentFilter = sel.value;
-  sel.innerHTML = '<option value="all">All habits</option>';
+  sel.innerHTML = '<option value="all">All tasks</option>';
   habits.forEach(h => {
     const opt = document.createElement('option');
     opt.value = h.id;
@@ -2455,7 +2476,12 @@ function showToast(msg, type = '') {
 function init() {
   load();
   renderDateBar();
-  renderDaily();
+  if (!habits.length) {
+    // No tasks yet — show About page so new users get oriented
+    switchView('about');
+  } else {
+    renderDaily();
+  }
 }
 
 init();
