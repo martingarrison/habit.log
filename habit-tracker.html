@@ -891,7 +891,13 @@
         <div class="example-habit"><span class="example-icon">💰</span><div><strong>Review budget</strong><div class="example-meta">Weekly (Sunday) · short and consistent beats thorough and never</div></div></div>
         <div class="example-habit"><span class="example-icon">🦷</span><div><strong>Dentist visit</strong><div class="example-meta">Every 180 days · set it once, let it remind you</div></div></div>
       </div>
-      <p class="about-tip">💡 <strong>Tip:</strong> Add at least one daily habit. That way you'll open the app regularly and catch upcoming interval reminders before they slip by — no push notifications needed.</p>
+      <p style="margin-top:14px;font-size:13px;color:var(--text-dim)"><strong>One-time tasks</strong> are for things you want to remember to do once — not a habit, just a to-do with a date attached. They show up in your daily view when due and in <em>Coming up</em> in the days before. Once done or skipped, they stay in your history but never come back. Use them for:</p>
+      <div class="example-habits" style="margin-top:10px">
+        <div class="example-habit"><span class="example-icon">🚗</span><div><strong>Schedule oil change</strong><div class="example-meta">One-time · set for this Saturday · push it if needed</div></div></div>
+        <div class="example-habit"><span class="example-icon">📦</span><div><strong>Return Amazon package</strong><div class="example-meta">One-time · due tomorrow · disappears once checked off</div></div></div>
+        <div class="example-habit"><span class="example-icon">🏥</span><div><strong>Follow up with doctor</strong><div class="example-meta">One-time · stays on your list until you do it or decide to skip</div></div></div>
+      </div>
+      <p class="about-tip">💡 <strong>Tip:</strong> Add at least one daily habit. That way you'll open the app regularly and catch upcoming reminders before they slip by — no push notifications needed.</p>
     </div>
 
     <div class="about-section">
@@ -980,6 +986,7 @@
           <option value="daily">Daily</option>
           <option value="weekly">Weekly (days)</option>
           <option value="interval">Every N days</option>
+          <option value="onetime">One-time</option>
         </select>
       </div>
       <div class="form-group" id="target-group">
@@ -1017,6 +1024,15 @@
           <label>Next due date</label>
           <input type="date" id="h-next-due">
         </div>
+      </div>
+    </div>
+
+    <!-- One-time -->
+    <div class="freq-fields" id="freq-onetime">
+      <div class="form-group">
+        <label>Due date</label>
+        <input type="date" id="h-onetime-due">
+        <div class="form-hint">Defaults to tomorrow — push it forward anytime.</div>
       </div>
     </div>
 
@@ -1350,6 +1366,7 @@
 // DATA MODEL
 // ============================================================
 // habits: [{id, name, category, type, freq, interval, nextDue, weekDays, target, phone, active}]
+// freq: 'daily' | 'weekly' | 'interval' | 'onetime'
 // logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number|'skip'|'pushed'), notes, stars (1-5|null)}]
 
 let habits = [];
@@ -1404,6 +1421,10 @@ function isDueOn(habit, dateStr) {
     return (habit.weekDays || []).includes(dow);
   }
   if (habit.freq === 'interval') {
+    if (!habit.nextDue) return false;
+    return habit.nextDue === dateStr;
+  }
+  if (habit.freq === 'onetime') {
     if (!habit.nextDue) return false;
     return habit.nextDue === dateStr;
   }
@@ -1623,6 +1644,25 @@ function renderDaily() {
     const d = daysUntilDue(h, currentDate);
     const log = getLog(h.id, currentDate);
 
+    if (h.freq === 'onetime') {
+      if (!h.nextDue) return;
+      // Pushed: show in today with steel blue
+      if (isToday && log && log.value === 'pushed') {
+        dueNow.push({ habit: h, pushed: true });
+      } else if (h.nextDue === currentDate) {
+        // Due today (or navigating to the due date historically)
+        dueNow.push({ habit: h, pushed: false });
+      } else if (!isToday && log && (log.value === true || log.value === 'skip' || (typeof log.value === 'number' && log.value > 0)) && log.value !== 'pushed') {
+        // Historical: show on the day it was actually logged
+        dueNow.push({ habit: h, pushed: false });
+      } else if (isToday && h.nextDue > currentDate) {
+        // Coming up
+        const daysAway = Math.round((dateFromStr(h.nextDue) - dateFromStr(currentDate)) / 86400000);
+        if (daysAway <= 3) comingUp.push({ habit: h, daysAway });
+      }
+      return;
+    }
+
     // Interval habit completed today: nextDue already advanced, but keep visible all day
     if (h.freq === 'interval' && log && log.value !== 'pushed' && log.value !== 'skip' &&
         (log.value === true || (typeof log.value === 'number' && log.value > 0))) {
@@ -1688,7 +1728,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   const currentStars = log ? log.stars : null;
 
   const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
-  const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : `every ${h.interval}d`;
+  const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : h.freq === 'onetime' ? 'one-time' : `every ${h.interval}d`;
 
   let rowClass = 'habit-row';
   if (mode === 'due' && !isPushed) rowClass += ' due-today';
@@ -1717,7 +1757,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
       rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
       const skipActive = isSkipped ? ' active' : '';
       rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-      if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
+      if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
         rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
       }
     } else {
@@ -1727,7 +1767,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
       rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
       const skipActive = isSkipped ? ' active' : '';
       rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-      if (h.freq === 'interval' && currentDate === todayStr() && !isSkipped) {
+      if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
         rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
       }
     }
@@ -1911,9 +1951,12 @@ function openHabitModal(editId) {
   document.getElementById('h-target').value = '';
   document.getElementById('h-interval').value = '';
   document.getElementById('h-next-due').value = '';
+  document.getElementById('h-onetime-due').value = '';
   document.querySelectorAll('.day-check').forEach(el => el.classList.remove('selected'));
   document.getElementById('freq-weekly').classList.remove('show');
   document.getElementById('freq-interval').classList.remove('show');
+  document.getElementById('freq-onetime').classList.remove('show');
+  document.getElementById('target-group').style.display = '';
 
   if (editId) {
     const h = habits.find(x => x.id === editId);
@@ -1935,6 +1978,14 @@ function openHabitModal(editId) {
       document.getElementById('h-interval').value = h.interval || '';
       document.getElementById('h-next-due').value = h.nextDue || '';
     }
+    if (h.freq === 'onetime') {
+      document.getElementById('freq-onetime').classList.add('show');
+      document.getElementById('h-onetime-due').value = h.nextDue || '';
+      document.getElementById('target-group').style.display = 'none';
+    }
+  } else {
+    // Default one-time due date to tomorrow
+    document.getElementById('h-onetime-due').value = addDays(todayStr(), 1);
   }
 
   onTypeChange();
@@ -1962,6 +2013,9 @@ function onFreqChange() {
   const freq = document.getElementById('h-freq').value;
   document.getElementById('freq-weekly').classList.toggle('show', freq === 'weekly');
   document.getElementById('freq-interval').classList.toggle('show', freq === 'interval');
+  document.getElementById('freq-onetime').classList.toggle('show', freq === 'onetime');
+  // Hide target for one-time tasks (not meaningful)
+  document.getElementById('target-group').style.display = freq === 'onetime' ? 'none' : '';
 }
 
 // Day-check toggle
@@ -1979,6 +2033,7 @@ function saveHabit() {
   const freq = document.getElementById('h-freq').value;
   const interval = Number(document.getElementById('h-interval').value);
   const nextDue = document.getElementById('h-next-due').value;
+  const onetimeDue = document.getElementById('h-onetime-due').value;
 
   if (freq === 'weekly') {
     const selected = [...document.querySelectorAll('.day-check.selected')];
@@ -1987,6 +2042,9 @@ function saveHabit() {
   if (freq === 'interval') {
     if (!interval || interval < 2) { showToast('Enter interval (min 2 days)', 'error'); return; }
     if (!nextDue) { showToast('Enter next due date', 'error'); return; }
+  }
+  if (freq === 'onetime') {
+    if (!onetimeDue) { showToast('Enter a due date', 'error'); return; }
   }
 
   const editId = document.getElementById('edit-habit-id').value;
@@ -1999,9 +2057,9 @@ function saveHabit() {
     type: document.getElementById('h-type').value,
     freq,
     interval: freq === 'interval' ? interval : null,
-    nextDue: freq === 'interval' ? nextDue : null,
+    nextDue: freq === 'interval' ? nextDue : freq === 'onetime' ? onetimeDue : null,
     weekDays: freq === 'weekly' ? weekDays : [],
-    target,
+    target: freq === 'onetime' ? null : target,
     phone: document.getElementById('h-phone').value.trim() || null,
     active: true
   };
@@ -2026,8 +2084,9 @@ function openPushModal(habitId) {
   const h = habits.find(x => x.id === habitId);
   if (!h) return;
   pushingHabitId = habitId;
+  const recurLine = h.freq === 'onetime' ? 'One-time task' : `Recurs every ${h.interval} days`;
   document.getElementById('push-info').innerHTML =
-    `<strong>${h.name}</strong><br>Currently due: ${h.nextDue}<br>Recurs every ${h.interval} days`;
+    `<strong>${h.name}</strong><br>Currently due: ${h.nextDue}<br>${recurLine}`;
   const minDate = addDays(currentDate, 1);
   const input = document.getElementById('push-new-date');
   input.setAttribute('min', minDate);
@@ -2051,7 +2110,8 @@ function confirmPush() {
   save();
   closePushModal();
   renderDaily();
-  showToast(`"${h.name}" pushed to ${newDate}`, 'success');
+  const label = h.freq === 'onetime' ? `"${h.name}" moved to ${newDate}` : `"${h.name}" pushed to ${newDate}`;
+  showToast(label, 'success');
 }
 
 // ============================================================
@@ -2200,11 +2260,16 @@ function renderReport() {
   }
 
   const catOrder = {health:0, people:1, chores:2, creative:3, other:4, family:1, music:3};
-  const sortedHabits = [...displayHabits].sort((a,b) => (catOrder[a.category]??4) - (catOrder[b.category]??4));
+  const recurringHabits = [...displayHabits]
+    .filter(h => h.freq !== 'onetime')
+    .sort((a,b) => (catOrder[a.category]??4) - (catOrder[b.category]??4));
+  const onetimeHabits = [...displayHabits]
+    .filter(h => h.freq === 'onetime')
+    .sort((a,b) => (b.nextDue||'').localeCompare(a.nextDue||''));
 
   let html = buildWeeklyDigest(todayD);
 
-  sortedHabits.forEach(h => {
+  recurringHabits.forEach(h => {
     const isPeople = h.category === 'people' || h.category === 'family';
     // Stats for current month only
     const lastOfMonth = `${year}-${String(month+1).padStart(2,'0')}-${new Date(year, month+1, 0).getDate()}`;
@@ -2282,6 +2347,43 @@ function renderReport() {
 
   });
 
+  // One-offs section — collapsed by default
+  if (onetimeHabits.length) {
+    const onetimeRows = onetimeHabits.map(h => {
+      const hLogs = logs.filter(l => l.habitId === h.id && l.value !== 'pushed');
+      const doneLog = hLogs.find(l => l.value === true || (typeof l.value === 'number' && l.value > 0));
+      const skipLog = hLogs.find(l => l.value === 'skip');
+      const log = doneLog || skipLog;
+
+      let statusIcon = '○';
+      let statusColor = 'var(--text-muted)';
+      let dateLabel = h.nextDue || '—';
+      if (doneLog) { statusIcon = '✓'; statusColor = 'var(--green)'; dateLabel = doneLog.date; }
+      else if (skipLog) { statusIcon = '–'; statusColor = 'var(--amber)'; dateLabel = skipLog.date; }
+
+      const starsHtml = log && log.stars
+        ? `<span style="color:#e8a820;font-size:12px;margin-left:6px">${'★'.repeat(log.stars)}</span>` : '';
+      const noteHtml = log && log.notes && log.notes.trim()
+        ? `<span style="font-size:11px;color:var(--text-muted);margin-left:8px;font-style:italic">${log.notes.replace(/</g,'&lt;')}</span>` : '';
+
+      return `<div style="display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-light);">
+        <span style="font-family:var(--mono);font-size:13px;color:${statusColor};width:14px;flex-shrink:0">${statusIcon}</span>
+        <span style="font-size:13px;font-weight:500;color:var(--text);flex:1">${h.name}</span>
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);white-space:nowrap">${dateLabel}</span>
+        ${starsHtml}${noteHtml}
+      </div>`;
+    }).join('');
+
+    html += `<details class="cal-details" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:0 1px 3px rgba(30,70,110,0.06)">
+      <summary style="font-size:13px;font-weight:500;color:var(--text-dim);list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px">
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">▸</span>
+        One-offs
+        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-left:4px">${onetimeHabits.length}</span>
+      </summary>
+      <div style="margin-top:10px">${onetimeRows}</div>
+    </details>`;
+  }
+
   container.innerHTML = html;
 }
 
@@ -2293,12 +2395,14 @@ function wasOrIsDueOn(habit, dateStr, dateRangeForContext) {
     return (habit.weekDays || []).includes(dow);
   }
   if (habit.freq === 'interval') {
-    // Check if a real completion or skip log exists on that date (not a 'pushed' marker)
     const hasLog = logs.some(l => l.habitId === habit.id && l.date === dateStr && l.value !== 'pushed');
     if (hasLog) return true;
-    // Or if it's the current nextDue
     if (habit.nextDue === dateStr) return true;
     return false;
+  }
+  if (habit.freq === 'onetime') {
+    return habit.nextDue === dateStr ||
+      logs.some(l => l.habitId === habit.id && l.date === dateStr && l.value !== 'pushed');
   }
   return false;
 }
