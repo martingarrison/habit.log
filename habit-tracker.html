@@ -29,9 +29,6 @@
     --coming-border: #b8d0e8;
     --amber: #b8860b;
     --amber-light: #fef8e4;
-    --mood-good: #2e8a5e;
-    --mood-okay: #2e6da4;
-    --mood-tough: #b8860b;
     --radius: 9px;
     --mono: 'DM Mono', monospace;
     --sans: 'DM Sans', sans-serif;
@@ -1209,7 +1206,7 @@
   .cal-cell.done { background: var(--green); color: white; }
   .cal-cell.partial { background: #b8a0d8; color: white; }
   .cal-cell.skipped { background: #c8b840; color: white; opacity: 0.75; }
-  .cal-cell.missed { background: var(--surface3); }
+  .cal-cell.missed { background: transparent; color: var(--text-muted); opacity: 0.35; }
   .cal-cell.today-cell { box-shadow: 0 0 0 2px var(--accent); }
   .cal-cell:hover::after {
     content: attr(data-tip);
@@ -1238,46 +1235,25 @@
   }
   .call-link:hover { opacity: 1; }
 
-  /* MOOD BUTTONS */
-  .mood-btns {
+  /* STAR RATING */
+  .star-btns {
     display: flex;
-    gap: 4px;
+    gap: 2px;
     align-items: center;
   }
-  .mood-btn {
+  .star-btn {
     background: none;
-    border: 1.5px solid var(--border);
-    border-radius: 20px;
-    font-size: 15px;
-    width: 32px;
-    height: 32px;
+    border: none;
+    font-size: 18px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s;
-    opacity: 0.5;
-    padding: 0;
+    padding: 2px 1px;
     line-height: 1;
+    color: var(--border);
+    transition: color 0.1s, transform 0.1s;
   }
-  .mood-btn:hover { opacity: 1; transform: scale(1.15); }
-  .mood-btn.selected { opacity: 1; border-color: transparent; }
-  .mood-btn[data-mood="good"].selected  { background: var(--green-light); border-color: var(--green); }
-  .mood-btn[data-mood="okay"].selected  { background: var(--accent-light); border-color: var(--accent); }
-  .mood-btn[data-mood="tough"].selected { background: var(--amber-light); border-color: var(--amber); }
-
-  /* Calendar mood tint modifiers */
-  .cal-cell.mood-good  { outline: 2px solid var(--mood-good); outline-offset: -2px; }
-  .cal-cell.mood-okay  { outline: 2px solid var(--mood-okay); outline-offset: -2px; }
-  .cal-cell.mood-tough { outline: 2px solid var(--mood-tough); outline-offset: -2px; }
-
-  /* Drilldown mood badge */
-  .mood-badge {
-    display: inline-block;
-    font-size: 14px;
-    vertical-align: middle;
-    margin-left: 4px;
-  }
+  .star-btn:hover { transform: scale(1.2); }
+  .star-btn.lit { color: #e8a820; }
+  .star-btn.lit-hover { color: #e8a820; }
 
 
   .report-card-name {
@@ -1338,38 +1314,17 @@
     color: var(--text-muted);
     margin-right: 6px;
   }
-    margin-top: 10px;
-    border-top: 1px solid var(--border-light);
-    padding-top: 10px;
+  /* Star display in reports */
+  .star-avg {
+    font-size: 13px;
+    color: #e8a820;
+    letter-spacing: 1px;
   }
-  .report-note-item {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 5px;
-    align-items: baseline;
-  }
-  .report-note-date {
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-muted);
-    white-space: nowrap;
-    min-width: 65px;
-    flex-shrink: 0;
-  }
-  .report-note-text {
-    font-size: 12px;
-    color: var(--text-dim);
-    line-height: 1.4;
-  }
+  .star-avg-num {
     font-family: var(--mono);
     font-size: 11px;
     color: var(--text-muted);
-    background: var(--surface3);
-    border: 1px solid var(--coming-border);
-    padding: 3px 9px;
-    border-radius: 12px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    margin-left: 3px;
   }
   .day-check {
     font-family: var(--mono);
@@ -1395,7 +1350,7 @@
 // DATA MODEL
 // ============================================================
 // habits: [{id, name, category, type, freq, interval, nextDue, weekDays, target, phone, active}]
-// logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number|'skip'|'pushed'), notes, mood ('good'|'okay'|'tough'|null)}]
+// logs:   [{id, habitId, date (YYYY-MM-DD), value (bool|number|'skip'|'pushed'), notes, stars (1-5|null)}]
 
 let habits = [];
 let logs = [];
@@ -1459,23 +1414,23 @@ function getLog(habitId, dateStr) {
   return logs.find(l => l.habitId === habitId && l.date === dateStr);
 }
 
-function setLog(habitId, dateStr, value, notes, mood) {
+function setLog(habitId, dateStr, value, notes, stars) {
   const existing = logs.findIndex(l => l.habitId === habitId && l.date === dateStr);
   if (existing >= 0) {
     logs[existing].value = value;
     if (notes !== undefined) logs[existing].notes = notes;
-    if (mood !== undefined) logs[existing].mood = mood;
+    if (stars !== undefined) logs[existing].stars = stars;
   } else {
-    logs.push({ id: genId(), habitId, date: dateStr, value, notes: notes !== undefined ? notes : '', mood: mood || null });
+    logs.push({ id: genId(), habitId, date: dateStr, value, notes: notes !== undefined ? notes : '', stars: stars || null });
   }
   save();
 }
 
-function setMood(habitId, dateStr, mood) {
+function setStars(habitId, dateStr, stars) {
   const existing = logs.findIndex(l => l.habitId === habitId && l.date === dateStr);
   if (existing >= 0) {
-    // Toggle off if same mood clicked again
-    logs[existing].mood = logs[existing].mood === mood ? null : mood;
+    // Toggle off if same rating clicked again
+    logs[existing].stars = logs[existing].stars === stars ? null : stars;
     save();
     renderDaily();
   }
@@ -1571,29 +1526,24 @@ function openDrilldown(habitId) {
     }
     if (skipped > 0) statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:16px">${skipped}</div><div class="stat-label">Skipped</div></div>`;
 
-    // Mood summary
-    const moodCounts = {good:0, okay:0, tough:0};
-    mLogs.forEach(l => { if (l.mood && moodCounts[l.mood] !== undefined) moodCounts[l.mood]++; });
-    const moodTotal = moodCounts.good + moodCounts.okay + moodCounts.tough;
-    let moodHtml = '';
-    if (moodTotal > 0) {
-      const parts = [];
-      if (moodCounts.good)  parts.push(`😊 ${moodCounts.good}`);
-      if (moodCounts.okay)  parts.push(`😐 ${moodCounts.okay}`);
-      if (moodCounts.tough) parts.push(`😟 ${moodCounts.tough}`);
-      moodHtml = `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-family:var(--mono)">${parts.join('  ')}</div>`;
+    // Stars summary for this month
+    const starredLogs = mLogs.filter(l => l.stars);
+    let starsHtml2 = '';
+    if (starredLogs.length) {
+      const avgStars = (starredLogs.reduce((s,l) => s + l.stars, 0) / starredLogs.length).toFixed(1);
+      starsHtml2 = `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-family:var(--mono)"><span style="color:#e8a820">${'★'.repeat(Math.round(avgStars))}</span> avg ${avgStars} (${starredLogs.length} rated)</div>`;
     }
 
-    // Notes with mood for this month
-    const notedLogs = mLogs.filter(l => (l.notes && l.notes.trim()) || l.mood).sort((a,b) => b.date.localeCompare(a.date));
+    // Notes with stars for this month
+    const notedLogs = mLogs.filter(l => (l.notes && l.notes.trim()) || l.stars).sort((a,b) => b.date.localeCompare(a.date));
     let notesHtml = '';
     if (notedLogs.length) {
       notesHtml = '<div class="drilldown-notes">' + notedLogs.map(l => {
-        const moodBadge = l.mood ? `<span class="mood-badge">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span>` : '';
+        const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
         const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
         return `<div class="report-note-item">
           <span class="report-note-date">${l.date}</span>
-          <span class="report-note-text">${moodBadge}${noteText}</span>
+          <span class="report-note-text">${starsBadge}${noteText}</span>
         </div>`;
       }).join('') + '</div>';
     }
@@ -1601,7 +1551,7 @@ function openDrilldown(habitId) {
     html += `<div class="drilldown-month">
       <div class="drilldown-month-label">${monthNames[month]} ${year}</div>
       <div class="drilldown-stats">${statsHtml}</div>
-      ${moodHtml}
+      ${starsHtml2}
       ${calHtml}
       ${notesHtml}
     </div>`;
@@ -1734,8 +1684,8 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
                : log.value === true
   );
   const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
-  const showMood = (isFullDone || isPartial) && mode === 'due' && !isPushed;
-  const currentMood = log ? log.mood : null;
+  const showStars = (isFullDone || isPartial) && mode === 'due' && !isPushed;
+  const currentStars = log ? log.stars : null;
 
   const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : `every ${h.interval}d`;
@@ -1781,12 +1731,11 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
         rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
       }
     }
-    if (showMood) {
-      rightContent += `<div class="mood-btns">
-        <button class="mood-btn${currentMood === 'good' ? ' selected' : ''}" data-hid="${h.id}" data-mood="good" title="Felt good">😊</button>
-        <button class="mood-btn${currentMood === 'okay' ? ' selected' : ''}" data-hid="${h.id}" data-mood="okay" title="Felt okay">😐</button>
-        <button class="mood-btn${currentMood === 'tough' ? ' selected' : ''}" data-hid="${h.id}" data-mood="tough" title="Felt tough">😟</button>
-      </div>`;
+    if (showStars) {
+      const starsHtml = [1,2,3,4,5].map(n =>
+        `<button class="star-btn${currentStars >= n ? ' lit' : ''}" data-hid="${h.id}" data-stars="${n}" title="${n} star${n>1?'s':''}">★</button>`
+      ).join('');
+      rightContent += `<div class="star-btns">${starsHtml}</div>`;
     }
   } else {
     const dayWord = daysAway === 1 ? 'tomorrow' : `in ${daysAway} days`;
@@ -1878,10 +1827,22 @@ function attachRowListeners() {
     });
   });
 
-  // Mood buttons
-  document.querySelectorAll('.mood-btn').forEach(el => {
-    el.addEventListener('click', () => {
-      setMood(el.dataset.hid, currentDate, el.dataset.mood);
+  // Star buttons
+  document.querySelectorAll('.star-btns').forEach(container => {
+    const btns = container.querySelectorAll('.star-btn');
+    btns.forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        const hoverN = Number(btn.dataset.stars);
+        btns.forEach(b => b.classList.toggle('lit', Number(b.dataset.stars) <= hoverN));
+      });
+      btn.addEventListener('mouseleave', () => {
+        const currentStars = Number(btn.closest('.habit-row') ?
+          (logs.find(l => l.habitId === btn.dataset.hid && l.date === currentDate) || {}).stars : 0) || 0;
+        btns.forEach(b => b.classList.toggle('lit', Number(b.dataset.stars) <= currentStars));
+      });
+      btn.addEventListener('click', () => {
+        setStars(btn.dataset.hid, currentDate, Number(btn.dataset.stars));
+      });
     });
   });
 }
@@ -2143,9 +2104,8 @@ function buildCalendarMonth(h, year, month, todayD) {
       }
     }
     if (isToday) cls += ' today-cell';
-    if (log && log.mood && (cls.includes('done') || cls.includes('partial'))) cls += ` mood-${log.mood}`;
-    const moodEmoji = log && log.mood ? {'good':'😊','okay':'😐','tough':'😟'}[log.mood] : '';
-    html += `<div class="${cls}" data-tip="${day}${tip ? ' · '+tip : ''}${moodEmoji ? ' '+moodEmoji : ''}">${day}</div>`;
+    const starTip = log && log.stars ? ` · ${'★'.repeat(log.stars)}` : '';
+    html += `<div class="${cls}" data-tip="${day}${tip ? ' · '+tip : ''}${starTip}">${day}</div>`;
   }
   html += '</div>';
   return html;
@@ -2257,70 +2217,69 @@ function renderReport() {
     });
     const avgMinutes = completedCount > 0 ? Math.round(totalMinutes / completedCount) : 0;
 
+    // Stars
+    const starredLogs = mLogs.filter(l => l.stars && (l.value === true || (typeof l.value === 'number' && l.value > 0)));
+    const avgStars = starredLogs.length > 0
+      ? (starredLogs.reduce((s,l) => s + l.stars, 0) / starredLogs.length)
+      : null;
+
     // Stats block
     let statsHtml = '';
     if (h.type === 'duration') {
       statsHtml = `
         <div class="stat-item"><div class="stat-value">${totalMinutes}</div><div class="stat-label">Total min</div></div>
         <div class="stat-item"><div class="stat-value">${avgMinutes}</div><div class="stat-label">Avg min</div></div>
-        <div class="stat-item"><div class="stat-value">${completedCount}</div><div class="stat-label">Days</div></div>`;
+        <div class="stat-item"><div class="stat-value">${completedCount}</div><div class="stat-label">Done</div></div>`;
     } else {
       statsHtml = `<div class="stat-item"><div class="stat-value">${completedCount}</div><div class="stat-label">Done</div></div>`;
     }
     if (skippedCount > 0) {
       statsHtml += `<div class="stat-item"><div class="stat-value">${skippedCount}</div><div class="stat-label">Skipped</div></div>`;
     }
+    if (avgStars !== null) {
+      const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
+      statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
+    }
 
-    // All notes + mood (people: all entries; others: most recent only)
+    // Most recent note (with stars if no note text)
     const notedLogs = logs
-      .filter(l => l.habitId === h.id && (l.notes && l.notes.trim() || l.mood))
+      .filter(l => l.habitId === h.id && ((l.notes && l.notes.trim()) || l.stars))
       .sort((a,b) => b.date.localeCompare(a.date));
 
+    // For people: show up to 6 recent notes; for others: just most recent
     let notesHtml = '';
     if (isPeople && notedLogs.length) {
-      // People: prominent notes list, all entries
       const entries = notedLogs.slice(0, 6).map(l => {
-        const moodBadge = l.mood ? `<span class="mood-badge">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span> ` : '';
+        const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
         const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
         return `<div class="report-note-item">
           <span class="report-note-date">${l.date}</span>
-          <span class="report-note-text">${moodBadge}${noteText}</span>
+          <span class="report-note-text">${starsBadge}${noteText}</span>
         </div>`;
       }).join('');
       notesHtml = `<div class="report-notes-list">${entries}</div>`;
     } else if (notedLogs[0]) {
       const l = notedLogs[0];
-      const moodBadge = l.mood ? `<span class="mood-badge" style="margin-right:4px">${{'good':'😊','okay':'😐','tough':'😟'}[l.mood]}</span>` : '';
+      const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
       const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
-      notesHtml = `<div class="report-recent-note"><span>${l.date}</span>${moodBadge}${noteText}</div>`;
+      notesHtml = `<div class="report-recent-note"><span>${l.date}</span>${starsBadge}${noteText}</div>`;
     }
 
     const calHtml = buildCalendarMonth(h, year, month, todayD);
     const phoneLink = h.phone ? `<a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link" style="font-size:13px;margin-left:6px;opacity:0.6" title="Call">📞</a>` : '';
 
-    if (isPeople) {
-      // People card: notes-first, calendar smaller / secondary
-      html += `<div class="report-card report-card-people">
-        <div class="report-card-header">
-          <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗${phoneLink}</div>
-          <div class="report-stats">${statsHtml}</div>
-        </div>
-        ${notesHtml}
-        <details class="cal-details">
-          <summary>Calendar</summary>
-          ${calHtml}
-        </details>
-      </div>`;
-    } else {
-      html += `<div class="report-card">
-        <div class="report-card-header">
-          <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗</div>
-          <div class="report-stats">${statsHtml}</div>
-        </div>
+    html += `<div class="report-card${isPeople ? ' report-card-people' : ''}">
+      <div class="report-card-header">
+        <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗${phoneLink}</div>
+        <div class="report-stats">${statsHtml}</div>
+      </div>
+      ${notesHtml}
+      <details class="cal-details">
+        <summary>Calendar</summary>
         ${calHtml}
-        ${notesHtml}
-      </div>`;
-    }
+      </details>
+    </div>`;
+
   });
 
   container.innerHTML = html;
@@ -2354,9 +2313,9 @@ function exportCSV() {
     csv += `${h.id},"${h.name.replace(/"/g,'""')}",${h.category},${h.type},${h.freq},${h.interval||''},${h.nextDue||''},"${(h.weekDays||[]).join('|')}",${h.target||''}\n`;
   });
   csv += '\n--- LOGS ---\n';
-  csv += 'id,habitId,date,value,mood,notes\n';
+  csv += 'id,habitId,date,value,stars,notes\n';
   logs.forEach(l => {
-    csv += `${l.id},${l.habitId},${l.date},${l.value},${l.mood||''},"${(l.notes||'').replace(/"/g,'""')}"\n`;
+    csv += `${l.id},${l.habitId},${l.date},${l.value},${l.stars||''},"${(l.notes||'').replace(/"/g,'""')}"\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -2407,15 +2366,19 @@ function importCSV(event) {
       logLines.forEach(line => {
         if (!line.trim()) return;
         const parts = parseCSVLine(line);
-        // Support both old format (id,habitId,date,value,notes) and new (id,habitId,date,value,mood,notes)
+        // Support old format (id,habitId,date,value,notes), mood format (id,habitId,date,value,mood,notes),
+        // and new stars format (id,habitId,date,value,stars,notes)
         const [id, habitId, date, value] = parts;
-        const hasMoodCol = parts.length >= 6;
-        const mood = hasMoodCol ? (parts[4] || null) : null;
-        const notes = hasMoodCol ? parts[5] : parts[4];
+        const hasSixCols = parts.length >= 6;
+        const fifthCol = hasSixCols ? (parts[4] || '') : '';
+        // Detect if fifth column is old mood string or new stars number
+        const isOldMood = ['good','okay','tough'].includes(fifthCol);
+        const starsRaw = !isOldMood && fifthCol ? Number(fifthCol) : null;
+        const stars = (starsRaw >= 1 && starsRaw <= 5) ? starsRaw : null;
+        const notes = hasSixCols ? parts[5] : parts[4];
         if (!id || logs.find(l => l.id === id)) return;
         const parsedValue = value === 'true' ? true : value === 'false' ? false : (value === 'skip' || value === 'pushed') ? value : Number(value);
-        const parsedMood = (mood === 'good' || mood === 'okay' || mood === 'tough') ? mood : null;
-        logs.push({ id, habitId, date, value: parsedValue, mood: parsedMood, notes: (notes||'').replace(/^"|"$/g,'').replace(/""/g,'"') });
+        logs.push({ id, habitId, date, value: parsedValue, stars, notes: (notes||'').replace(/^"|"$/g,'').replace(/""/g,'"') });
         logsAdded++;
       });
 
