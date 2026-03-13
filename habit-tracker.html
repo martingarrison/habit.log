@@ -884,14 +884,13 @@
         <div class="example-habit"><span class="example-icon">📞</span><div><strong>Call a friend or family member</strong><div class="example-meta">Every 14 days · you'll see it coming up even without push notifications</div></div></div>
         <div class="example-habit"><span class="example-icon">🌬️</span><div><strong>Replace air filter</strong><div class="example-meta">Every 90 days · the classic thing everyone forgets</div></div></div>
         <div class="example-habit"><span class="example-icon">💰</span><div><strong>Review budget</strong><div class="example-meta">Weekly (Sunday) · short and consistent beats thorough and never</div></div></div>
-        <div class="example-habit"><span class="example-icon">🦷</span><div><strong>Dentist visit</strong><div class="example-meta">Every 180 days · set it once, let it remind you</div></div></div>
       </div>
       <p style="margin-top:14px;font-size:13px;color:var(--text-dim)"><strong>One-time tasks</strong> are for things you want to remember to do once — not a habit, just a to-do with a date attached. They show up in your daily view when due and in <em>Coming up</em> in the days before. Once done or skipped, they stay in your history but never come back. Use them for:</p>
       <div class="example-habits" style="margin-top:10px">
-        <div class="example-habit"><span class="example-icon">🚗</span><div><strong>Schedule oil change</strong><div class="example-meta">One-time · set for this Saturday · push it if needed</div></div></div>
-        <div class="example-habit"><span class="example-icon">📦</span><div><strong>Return Amazon package</strong><div class="example-meta">One-time · due tomorrow · disappears once checked off</div></div></div>
+        <div class="example-habit"><span class="example-icon">📦</span><div><strong>Return Amazon package</strong><div class="example-meta">One-time · due tomorrow · disappears from Tasks once checked off</div></div></div>
         <div class="example-habit"><span class="example-icon">🏥</span><div><strong>Follow up with doctor</strong><div class="example-meta">One-time · stays on your list until you do it or decide to skip</div></div></div>
       </div>
+      <p style="margin-top:14px;font-size:13px;color:var(--text-dim)"><strong>Star ratings</strong> are how you check things off. Tap a star on any due task to mark it complete and rate it in one step — no separate checkbox. The ratings accumulate in <em>Review</em> so you can see over time which tasks feel worth it and which don't. Duration tasks (like a workout) show a time input once you've given a star.</p>
       <p class="about-tip">💡 <strong>Tip:</strong> Add at least one daily habit. That way you'll open the app regularly and catch upcoming reminders before they slip by — no push notifications needed.</p>
     </div>
 
@@ -1855,8 +1854,17 @@ function renderManage() {
   const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   let html = '';
   habits.forEach(h => {
+    // Hide one-offs that have already been actioned (done or skipped)
+    if (h.freq === 'onetime') {
+      const actioned = logs.find(l => l.habitId === h.id &&
+        (l.value === true || l.value === 'skip' || (typeof l.value === 'number' && l.value > 0)) &&
+        l.value !== 'pushed');
+      if (actioned) return;
+    }
+
     const freqLabel = h.freq === 'daily' ? 'Daily' :
       h.freq === 'weekly' ? `Weekly (${(h.weekDays||[]).map(d=>['Su','Mo','Tu','We','Th','Fr','Sa'][d]).join(', ')})` :
+      h.freq === 'onetime' ? `One-time · due ${h.nextDue || '?'}` :
       `Every ${h.interval} days`;
     const typeLabel = h.type === 'duration' ? 'Duration' : 'Checkbox';
     const targetLabel = h.target ? ` · target: ${h.target}${h.type === 'duration' ? ' min' : 'x'}` : '';
