@@ -813,7 +813,7 @@
     <nav>
       <button class="active" onclick="switchView('daily')">Today</button>
       <button onclick="switchView('manage')">Tasks</button>
-      <button onclick="switchView('report')">Reports</button>
+      <button onclick="switchView('report')">Review</button>
       <button onclick="switchView('about')">About</button>
     </nav>
   </header>
@@ -846,14 +846,9 @@
     <div id="manage-list"></div>
   </div>
 
-  <!-- REPORT VIEW -->
+  <!-- REVIEW VIEW -->
   <div class="view" id="view-report">
-    <div class="report-controls">
-      <select id="report-habit" onchange="renderReport()">
-        <option value="all">All tasks</option>
-      </select>
-    </div>
-    <div id="report-content" class="report-grid"></div>
+    <div id="report-content"></div>
   </div>
 
   <!-- HABIT DRILL-DOWN VIEW -->
@@ -1488,7 +1483,6 @@ function openDrilldown(habitId) {
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById('view-drilldown').classList.add('active');
   document.getElementById('drilldown-title').textContent = h.name;
-  // Add call link for people tasks with a phone number
   const callLink = document.getElementById('drilldown-call');
   if (h.phone && (h.category === 'people' || h.category === 'family')) {
     callLink.href = `tel:${h.phone.replace(/[^0-9+]/g,'')}`;
@@ -1497,89 +1491,57 @@ function openDrilldown(habitId) {
     callLink.style.display = 'none';
   }
 
-  // Find earliest log date for this habit
-  const habitLogs = logs.filter(l => l.habitId === h.id);
   const todayD = todayStr();
-  const todayDate = dateFromStr(todayD);
+  const hLogs = logs
+    .filter(l => l.habitId === h.id && l.value !== 'pushed' && l.date <= todayD)
+    .sort((a,b) => b.date.localeCompare(a.date));
 
-  // Build month list from first log month (or habit creation implied by nextDue) to current month
-  let earliestDate = todayDate;
-  if (habitLogs.length) {
-    const sorted = habitLogs.map(l => l.date).sort();
-    earliestDate = dateFromStr(sorted[0]);
-  }
-
-  // Build all months from earliest to current
-  const months = [];
-  let y = earliestDate.getFullYear(), m = earliestDate.getMonth();
-  const curY = todayDate.getFullYear(), curM = todayDate.getMonth();
-  while (y < curY || (y === curY && m <= curM)) {
-    months.push({ year: y, month: m });
-    m++;
-    if (m > 11) { m = 0; y++; }
-  }
-  months.reverse(); // most recent first
-
-  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-  let html = '<div class="drilldown-months">';
-  months.forEach(({ year, month }) => {
-    const calHtml = buildCalendarMonth(h, year, month, todayD);
-    // Stats for this month
-    const firstDay = `${year}-${String(month+1).padStart(2,'0')}-01`;
-    const lastDay = `${year}-${String(month+1).padStart(2,'0')}-${new Date(year, month+1, 0).getDate()}`;
-    const mLogs = logs.filter(l => l.habitId === h.id && l.date >= firstDay && l.date <= lastDay && l.date <= todayD);
-    let done = 0, skipped = 0, totalMin = 0;
-    mLogs.forEach(l => {
-      if (l.value === 'skip') { skipped++; return; }
-      if (h.type === 'duration') { const v = Number(l.value); if (v > 0) { done++; totalMin += v; } }
-      else { if (l.value === true) done++; }
-    });
-
-    let statsHtml = '';
-    if (h.type === 'duration') {
-      const avg = done > 0 ? Math.round(totalMin / done) : 0;
-      statsHtml = `<div class="stat-item"><div class="stat-value" style="font-size:16px">${totalMin}</div><div class="stat-label">Total min</div></div>
-        <div class="stat-item"><div class="stat-value" style="font-size:16px">${avg}</div><div class="stat-label">Avg min</div></div>
-        <div class="stat-item"><div class="stat-value" style="font-size:16px">${done}</div><div class="stat-label">Days</div></div>`;
-    } else {
-      statsHtml = `<div class="stat-item"><div class="stat-value" style="font-size:16px">${done}</div><div class="stat-label">Done</div></div>`;
-    }
-    if (skipped > 0) statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:16px">${skipped}</div><div class="stat-label">Skipped</div></div>`;
-
-    // Stars summary for this month
-    const starredLogs = mLogs.filter(l => l.stars);
-    let starsHtml2 = '';
-    if (starredLogs.length) {
-      const avgStars = (starredLogs.reduce((s,l) => s + l.stars, 0) / starredLogs.length).toFixed(1);
-      starsHtml2 = `<div style="font-size:12px;color:var(--text-muted);margin-top:6px;font-family:var(--mono)"><span style="color:#e8a820">${'★'.repeat(Math.round(avgStars))}</span> avg ${avgStars} (${starredLogs.length} rated)</div>`;
-    }
-
-    // Notes with stars for this month
-    const notedLogs = mLogs.filter(l => (l.notes && l.notes.trim()) || l.stars).sort((a,b) => b.date.localeCompare(a.date));
-    let notesHtml = '';
-    if (notedLogs.length) {
-      notesHtml = '<div class="drilldown-notes">' + notedLogs.map(l => {
-        const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
-        const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
-        return `<div class="report-note-item">
-          <span class="report-note-date">${l.date}</span>
-          <span class="report-note-text">${starsBadge}${noteText}</span>
-        </div>`;
-      }).join('') + '</div>';
-    }
-
-    html += `<div class="drilldown-month">
-      <div class="drilldown-month-label">${monthNames[month]} ${year}</div>
-      <div class="drilldown-stats">${statsHtml}</div>
-      ${starsHtml2}
-      ${calHtml}
-      ${notesHtml}
-    </div>`;
+  // Stats
+  let done = 0, skipped = 0, totalMin = 0, starSum = 0, starCount = 0;
+  hLogs.forEach(l => {
+    if (l.value === 'skip') { skipped++; return; }
+    if (h.type === 'duration') { const v = Number(l.value); if (v > 0) { done++; totalMin += v; } }
+    else if (l.value === true) done++;
+    if (l.stars) { starSum += l.stars; starCount++; }
   });
-  html += '</div>';
+  const avgMin = done > 0 ? Math.round(totalMin / done) : 0;
+  const avgStars = starCount > 0 ? (starSum / starCount) : null;
 
-  document.getElementById('drilldown-content').innerHTML = html;
+  let statsHtml = `<div class="stat-item"><div class="stat-value">${done}</div><div class="stat-label">Done</div></div>`;
+  if (skipped) statsHtml += `<div class="stat-item"><div class="stat-value">${skipped}</div><div class="stat-label">Skipped</div></div>`;
+  if (h.type === 'duration' && done > 0) {
+    statsHtml += `<div class="stat-item"><div class="stat-value">${totalMin}</div><div class="stat-label">Total min</div></div>`;
+    statsHtml += `<div class="stat-item"><div class="stat-value">${avgMin}</div><div class="stat-label">Avg min</div></div>`;
+  }
+  if (avgStars !== null) {
+    const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
+    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
+  }
+
+  // Flat log
+  const logRows = hLogs.map(l => {
+    let statusIcon = '', statusColor = 'var(--text-muted)';
+    if (l.value === 'skip') { statusIcon = 'skipped'; statusColor = 'var(--amber)'; }
+    else if (l.value === true || (typeof l.value === 'number' && l.value > 0)) {
+      statusIcon = h.type === 'duration' ? `${l.value} min` : 'done';
+      statusColor = 'var(--green)';
+    }
+    const starsHtml = l.stars
+      ? `<span style="color:#e8a820;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
+    const noteHtml = l.notes && l.notes.trim()
+      ? `<span style="font-size:12px;color:var(--text-muted);margin-left:10px;font-style:italic">${l.notes.replace(/</g,'&lt;')}</span>` : '';
+    return `<div style="display:flex;align-items:baseline;gap:0;padding:9px 0;border-bottom:1px solid var(--border-light)">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);min-width:80px;flex-shrink:0">${l.date}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:${statusColor};min-width:52px;flex-shrink:0">${statusIcon}</span>
+      ${starsHtml}${noteHtml}
+    </div>`;
+  }).join('');
+
+  const emptyMsg = hLogs.length === 0 ? '<div style="color:var(--text-muted);font-size:13px;padding:20px 0">No entries yet.</div>' : '';
+
+  document.getElementById('drilldown-content').innerHTML = `
+    <div class="drilldown-stats" style="margin-bottom:20px">${statsHtml}</div>
+    <div>${logRows}${emptyMsg}</div>`;
   document.getElementById('date-bar').style.display = 'none';
 }
 
@@ -1724,8 +1686,8 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
                : log.value === true
   );
   const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
-  const showStars = (isFullDone || isPartial) && mode === 'due' && !isPushed;
   const currentStars = log ? log.stars : null;
+  const hasStars = currentStars !== null && currentStars > 0;
 
   const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : h.freq === 'onetime' ? 'one-time' : `every ${h.interval}d`;
@@ -1743,39 +1705,34 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   if (mode === 'due') {
     if (isPushed) {
       rightContent += `<span class="coming-up-badge" style="background:#dce8f8;border-color:#a0bcd8;color:#3a6a9a">pushed → ${h.nextDue}</span>`;
-    } else if (isDuration) {
-      const val = (log && !isSkipped) ? (log.value || '') : '';
-      rightContent += `<div class="duration-input">
-        <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes" ${isSkipped ? 'disabled' : ''}>
-        <span class="unit">min</span>
-      </div>`;
-      if (h.target && !isSkipped) {
-        const targetMet = val !== '' && Number(val) >= Number(h.target);
-        rightContent += `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>`;
-      }
-      const notesVal = (log && log.notes) ? log.notes : '';
-      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
-      const skipActive = isSkipped ? ' active' : '';
-      rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-      if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
-        rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
-      }
-    } else {
-      const chkClass = 'habit-check' + (isFullDone ? ' checked' : '');
-      rightContent += `<div class="${chkClass}" data-hid="${h.id}" title="Mark complete" ${isSkipped ? 'style="pointer-events:none;opacity:0.4"' : ''}></div>`;
-      const notesVal = (log && log.notes) ? log.notes : '';
-      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
-      const skipActive = isSkipped ? ' active' : '';
-      rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-      if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
-        rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
-      }
-    }
-    if (showStars) {
+    } else if (!isSkipped) {
+      // Stars are always visible and act as completion for checkbox tasks
       const starsHtml = [1,2,3,4,5].map(n =>
         `<button class="star-btn${currentStars >= n ? ' lit' : ''}" data-hid="${h.id}" data-stars="${n}" title="${n} star${n>1?'s':''}">★</button>`
       ).join('');
       rightContent += `<div class="star-btns">${starsHtml}</div>`;
+
+      // Duration input — only shown after a star is given
+      if (isDuration && hasStars) {
+        const val = logVal || '';
+        rightContent += `<div class="duration-input">
+          <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes">
+          <span class="unit">min</span>
+        </div>`;
+        if (h.target) {
+          const targetMet = val !== '' && Number(val) >= Number(h.target);
+          rightContent += `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>`;
+        }
+      }
+
+      const notesVal = (log && log.notes) ? log.notes : '';
+      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
+    }
+
+    const skipActive = isSkipped ? ' active' : '';
+    rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
+    if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
+      rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
     }
   } else {
     const dayWord = daysAway === 1 ? 'tomorrow' : `in ${daysAway} days`;
@@ -1795,26 +1752,6 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
 }
 
 function attachRowListeners() {
-  // Checkbox toggle
-  document.querySelectorAll('.habit-check').forEach(el => {
-    el.addEventListener('click', () => {
-      const hid = el.dataset.hid;
-      const log = getLog(hid, currentDate);
-      const newVal = !(log && log.value === true);
-      const notes = (log && log.notes) || '';
-      setLog(hid, currentDate, newVal, notes);
-      // Advance interval habit when marked done (only on current/today's date)
-      if (newVal === true) {
-        const h = habits.find(x => x.id === hid);
-        if (h && h.freq === 'interval' && currentDate === h.nextDue) {
-          h.nextDue = addDays(currentDate, h.interval);
-          save();
-        }
-      }
-      renderDaily();
-    });
-  });
-
   // Duration input
   document.querySelectorAll('.log-duration').forEach(el => {
     el.addEventListener('change', () => {
@@ -1848,7 +1785,6 @@ function attachRowListeners() {
       const log = getLog(hid, currentDate);
       const isCurrentlySkipped = log && log.value === 'skip';
       if (isCurrentlySkipped) {
-        // Un-skip: remove the log entry entirely
         const idx = logs.findIndex(l => l.habitId === hid && l.date === currentDate);
         if (idx >= 0) logs.splice(idx, 1);
         save();
@@ -1867,7 +1803,7 @@ function attachRowListeners() {
     });
   });
 
-  // Star buttons
+  // Star buttons — also mark checkbox tasks done on first star tap
   document.querySelectorAll('.star-btns').forEach(container => {
     const btns = container.querySelectorAll('.star-btn');
     btns.forEach(btn => {
@@ -1876,12 +1812,31 @@ function attachRowListeners() {
         btns.forEach(b => b.classList.toggle('lit', Number(b.dataset.stars) <= hoverN));
       });
       btn.addEventListener('mouseleave', () => {
-        const currentStars = Number(btn.closest('.habit-row') ?
-          (logs.find(l => l.habitId === btn.dataset.hid && l.date === currentDate) || {}).stars : 0) || 0;
-        btns.forEach(b => b.classList.toggle('lit', Number(b.dataset.stars) <= currentStars));
+        const cs = (logs.find(l => l.habitId === btn.dataset.hid && l.date === currentDate) || {}).stars || 0;
+        btns.forEach(b => b.classList.toggle('lit', Number(b.dataset.stars) <= cs));
       });
       btn.addEventListener('click', () => {
-        setStars(btn.dataset.hid, currentDate, Number(btn.dataset.stars));
+        const hid = btn.dataset.hid;
+        const n = Number(btn.dataset.stars);
+        const h = habits.find(x => x.id === hid);
+        const log = getLog(hid, currentDate);
+        // For checkbox tasks, tapping a star also marks it done
+        if (h && h.type === 'checkbox') {
+          const alreadyDone = log && log.value === true;
+          const toggleOff = log && log.stars === n; // tapping same star again clears
+          if (!alreadyDone) {
+            const notes = (log && log.notes) || '';
+            setLog(hid, currentDate, true, notes);
+            // Advance interval habit
+            if (h.freq === 'interval' && currentDate === h.nextDue) {
+              h.nextDue = addDays(currentDate, h.interval);
+              save();
+            }
+          }
+          setStars(hid, currentDate, n);
+        } else {
+          setStars(hid, currentDate, n);
+        }
       });
     });
   });
@@ -2231,160 +2186,141 @@ function buildWeeklyDigest(todayD) {
 }
 
 function renderReport() {
-  const sel = document.getElementById('report-habit');
-  const currentFilter = sel.value;
-  sel.innerHTML = '<option value="all">All tasks</option>';
-  habits.forEach(h => {
-    const opt = document.createElement('option');
-    opt.value = h.id;
-    opt.textContent = h.name;
-    sel.appendChild(opt);
-  });
-  if (currentFilter && sel.querySelector(`option[value="${currentFilter}"]`)) {
-    sel.value = currentFilter;
-  } else {
-    sel.value = 'all';
-  }
-
-  const todayD = todayStr();
-  const todayDate = dateFromStr(todayD);
-  const year = todayDate.getFullYear();
-  const month = todayDate.getMonth();
-  const firstOfMonth = `${year}-${String(month+1).padStart(2,'0')}-01`;
-
-  const displayHabits = (sel.value === 'all') ? habits : habits.filter(h => h.id === sel.value);
   const container = document.getElementById('report-content');
-  if (!displayHabits.length) {
-    container.innerHTML = '<div class="empty-state">No habits to report on.</div>';
+  if (!habits.length) {
+    container.innerHTML = '<div class="empty-state">No tasks yet.</div>';
     return;
   }
 
+  const todayD = todayStr();
   const catOrder = {health:0, people:1, chores:2, creative:3, other:4, family:1, music:3};
-  const recurringHabits = [...displayHabits]
+  const recurringHabits = [...habits]
     .filter(h => h.freq !== 'onetime')
     .sort((a,b) => (catOrder[a.category]??4) - (catOrder[b.category]??4));
-  const onetimeHabits = [...displayHabits]
-    .filter(h => h.freq === 'onetime')
-    .sort((a,b) => (b.nextDue||'').localeCompare(a.nextDue||''));
+  const onetimeHabits = habits.filter(h => h.freq === 'onetime');
 
-  let html = buildWeeklyDigest(todayD);
-
-  recurringHabits.forEach(h => {
-    const isPeople = h.category === 'people' || h.category === 'family';
-    // Stats for current month only
-    const lastOfMonth = `${year}-${String(month+1).padStart(2,'0')}-${new Date(year, month+1, 0).getDate()}`;
-    const mLogs = logs.filter(l => l.habitId === h.id && l.date >= firstOfMonth && l.date <= todayD);
-    let completedCount = 0, skippedCount = 0, totalMinutes = 0;
-    mLogs.forEach(l => {
-      if (l.value === 'skip') { skippedCount++; return; }
-      if (h.type === 'duration') { const v = Number(l.value); if (v > 0) { completedCount++; totalMinutes += v; } }
-      else { if (l.value === true) completedCount++; }
-    });
-    const avgMinutes = completedCount > 0 ? Math.round(totalMinutes / completedCount) : 0;
-
-    // Stars
-    const starredLogs = mLogs.filter(l => l.stars && (l.value === true || (typeof l.value === 'number' && l.value > 0)));
-    const avgStars = starredLogs.length > 0
-      ? (starredLogs.reduce((s,l) => s + l.stars, 0) / starredLogs.length)
+  function buildReviewRow(h, overrideId) {
+    const hLogs = logs.filter(l => l.habitId === h.id && l.value !== 'pushed' && l.date <= todayD);
+    const starredLogs = hLogs.filter(l => l.stars);
+    const reviewCount = starredLogs.length;
+    const avgStars = reviewCount > 0
+      ? (starredLogs.reduce((s,l) => s + l.stars, 0) / reviewCount)
       : null;
 
-    // Stats block
-    let statsHtml = '';
-    if (h.type === 'duration') {
-      statsHtml = `
-        <div class="stat-item"><div class="stat-value">${totalMinutes}</div><div class="stat-label">Total min</div></div>
-        <div class="stat-item"><div class="stat-value">${avgMinutes}</div><div class="stat-label">Avg min</div></div>
-        <div class="stat-item"><div class="stat-value">${completedCount}</div><div class="stat-label">Done</div></div>`;
-    } else {
-      statsHtml = `<div class="stat-item"><div class="stat-value">${completedCount}</div><div class="stat-label">Done</div></div>`;
-    }
-    if (skippedCount > 0) {
-      statsHtml += `<div class="stat-item"><div class="stat-value">${skippedCount}</div><div class="stat-label">Skipped</div></div>`;
-    }
-    if (avgStars !== null) {
-      const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
-      statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
-    }
+    const starsDisplay = avgStars !== null
+      ? `<span style="color:#e8a820;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
+      : `<span style="color:var(--border);font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
 
-    // Most recent note (with stars if no note text)
-    const notedLogs = logs
-      .filter(l => l.habitId === h.id && ((l.notes && l.notes.trim()) || l.stars))
-      .sort((a,b) => b.date.localeCompare(a.date));
+    const reviewLink = reviewCount > 0
+      ? `<a href="#" class="review-count-link" data-hid="${overrideId || h.id}" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">(${reviewCount})</a>`
+      : `<span style="font-family:var(--mono);font-size:12px;color:var(--text-muted)">(0)</span>`;
 
-    // For people: show up to 6 recent notes; for others: just most recent
-    let notesHtml = '';
-    if (isPeople && notedLogs.length) {
-      const entries = notedLogs.slice(0, 6).map(l => {
-        const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
-        const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
-        return `<div class="report-note-item">
-          <span class="report-note-date">${l.date}</span>
-          <span class="report-note-text">${starsBadge}${noteText}</span>
-        </div>`;
-      }).join('');
-      notesHtml = `<div class="report-notes-list">${entries}</div>`;
-    } else if (notedLogs[0]) {
-      const l = notedLogs[0];
-      const starsBadge = l.stars ? `<span style="color:#e8a820;font-size:12px;margin-right:4px">${'★'.repeat(l.stars)}</span>` : '';
-      const noteText = l.notes ? l.notes.replace(/</g,'&lt;') : '';
-      notesHtml = `<div class="report-recent-note"><span>${l.date}</span>${starsBadge}${noteText}</div>`;
-    }
-
-    const calHtml = buildCalendarMonth(h, year, month, todayD);
-    const phoneLink = h.phone ? `<a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link" style="font-size:13px;margin-left:6px;opacity:0.6" title="Call">📞</a>` : '';
-
-    html += `<div class="report-card${isPeople ? ' report-card-people' : ''}">
-      <div class="report-card-header">
-        <div class="report-card-name" onclick="openDrilldown('${h.id}')">${h.name} ↗${phoneLink}</div>
-        <div class="report-stats">${statsHtml}</div>
-      </div>
-      ${notesHtml}
-      <details class="cal-details">
-        <summary>Calendar</summary>
-        ${calHtml}
-      </details>
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
+      <span style="flex:1;font-size:14px;font-weight:500;color:var(--text)">${h.name}</span>
+      ${starsDisplay}
+      ${reviewLink}
     </div>`;
-
-  });
-
-  // One-offs section — collapsed by default
-  if (onetimeHabits.length) {
-    const onetimeRows = onetimeHabits.map(h => {
-      const hLogs = logs.filter(l => l.habitId === h.id && l.value !== 'pushed');
-      const doneLog = hLogs.find(l => l.value === true || (typeof l.value === 'number' && l.value > 0));
-      const skipLog = hLogs.find(l => l.value === 'skip');
-      const log = doneLog || skipLog;
-
-      let statusIcon = '○';
-      let statusColor = 'var(--text-muted)';
-      let dateLabel = h.nextDue || '—';
-      if (doneLog) { statusIcon = '✓'; statusColor = 'var(--green)'; dateLabel = doneLog.date; }
-      else if (skipLog) { statusIcon = '–'; statusColor = 'var(--amber)'; dateLabel = skipLog.date; }
-
-      const starsHtml = log && log.stars
-        ? `<span style="color:#e8a820;font-size:12px;margin-left:6px">${'★'.repeat(log.stars)}</span>` : '';
-      const noteHtml = log && log.notes && log.notes.trim()
-        ? `<span style="font-size:11px;color:var(--text-muted);margin-left:8px;font-style:italic">${log.notes.replace(/</g,'&lt;')}</span>` : '';
-
-      return `<div style="display:flex;align-items:baseline;gap:10px;padding:6px 0;border-bottom:1px solid var(--border-light);">
-        <span style="font-family:var(--mono);font-size:13px;color:${statusColor};width:14px;flex-shrink:0">${statusIcon}</span>
-        <span style="font-size:13px;font-weight:500;color:var(--text);flex:1">${h.name}</span>
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);white-space:nowrap">${dateLabel}</span>
-        ${starsHtml}${noteHtml}
-      </div>`;
-    }).join('');
-
-    html += `<details class="cal-details" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:0 1px 3px rgba(30,70,110,0.06)">
-      <summary style="font-size:13px;font-weight:500;color:var(--text-dim);list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px">
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted)">▸</span>
-        One-offs
-        <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);margin-left:4px">${onetimeHabits.length}</span>
-      </summary>
-      <div style="margin-top:10px">${onetimeRows}</div>
-    </details>`;
   }
 
+  let html = '<div style="padding-top:8px">';
+
+  recurringHabits.forEach(h => {
+    html += buildReviewRow(h);
+  });
+
+  // One-offs aggregate row
+  if (onetimeHabits.length) {
+    const allOnetimeLogs = logs.filter(l =>
+      onetimeHabits.some(h => h.id === l.habitId) && l.value !== 'pushed' && l.date <= todayD
+    );
+    const starredOnetimeLogs = allOnetimeLogs.filter(l => l.stars);
+    const reviewCount = starredOnetimeLogs.length;
+    const avgStars = reviewCount > 0
+      ? (starredOnetimeLogs.reduce((s,l) => s + l.stars, 0) / reviewCount)
+      : null;
+
+    const starsDisplay = avgStars !== null
+      ? `<span style="color:#e8a820;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
+      : `<span style="color:var(--border);font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
+
+    const reviewLink = reviewCount > 0
+      ? `<a href="#" class="review-count-link" data-hid="__onetime__" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">(${reviewCount})</a>`
+      : `<span style="font-family:var(--mono);font-size:12px;color:var(--text-muted)">(0)</span>`;
+
+    html += `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
+      <span style="flex:1;font-size:14px;font-weight:500;color:var(--text-dim);font-style:italic">One-offs <span style="font-family:var(--mono);font-size:11px;font-style:normal;color:var(--text-muted)">${onetimeHabits.length}</span></span>
+      ${starsDisplay}
+      ${reviewLink}
+    </div>`;
+  }
+
+  html += '</div>';
   container.innerHTML = html;
+
+  // Attach review count link listeners
+  container.querySelectorAll('.review-count-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const hid = link.dataset.hid;
+      if (hid === '__onetime__') {
+        openOnetimeDrilldown();
+      } else {
+        openDrilldown(hid);
+      }
+    });
+  });
+}
+
+function openOnetimeDrilldown() {
+  const onetimeHabits = habits.filter(h => h.freq === 'onetime');
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-drilldown').classList.add('active');
+  document.getElementById('drilldown-title').textContent = 'One-offs';
+  document.getElementById('drilldown-call').style.display = 'none';
+
+  const todayD = todayStr();
+  const allLogs = logs
+    .filter(l => onetimeHabits.some(h => h.id === l.habitId) && l.value !== 'pushed' && l.date <= todayD)
+    .sort((a,b) => b.date.localeCompare(a.date));
+
+  let done = 0, skipped = 0, starSum = 0, starCount = 0;
+  allLogs.forEach(l => {
+    if (l.value === 'skip') { skipped++; return; }
+    if (l.value === true || (typeof l.value === 'number' && l.value > 0)) done++;
+    if (l.stars) { starSum += l.stars; starCount++; }
+  });
+  const avgStars = starCount > 0 ? starSum / starCount : null;
+
+  let statsHtml = `<div class="stat-item"><div class="stat-value">${onetimeHabits.length}</div><div class="stat-label">Total</div></div>`;
+  statsHtml += `<div class="stat-item"><div class="stat-value">${done}</div><div class="stat-label">Done</div></div>`;
+  if (skipped) statsHtml += `<div class="stat-item"><div class="stat-value">${skipped}</div><div class="stat-label">Skipped</div></div>`;
+  if (avgStars !== null) {
+    const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
+    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
+  }
+
+  const logRows = allLogs.map(l => {
+    const h = onetimeHabits.find(x => x.id === l.habitId);
+    const name = h ? h.name : '—';
+    let statusIcon = '', statusColor = 'var(--text-muted)';
+    if (l.value === 'skip') { statusIcon = 'skipped'; statusColor = 'var(--amber)'; }
+    else if (l.value === true || (typeof l.value === 'number' && l.value > 0)) { statusIcon = 'done'; statusColor = 'var(--green)'; }
+    const starsHtml = l.stars ? `<span style="color:#e8a820;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
+    const noteHtml = l.notes && l.notes.trim() ? `<span style="font-size:12px;color:var(--text-muted);margin-left:10px;font-style:italic">${l.notes.replace(/</g,'&lt;')}</span>` : '';
+    return `<div style="display:flex;align-items:baseline;gap:0;padding:9px 0;border-bottom:1px solid var(--border-light)">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);min-width:80px;flex-shrink:0">${l.date}</span>
+      <span style="font-size:13px;font-weight:500;color:var(--text);flex:1">${name}</span>
+      <span style="font-family:var(--mono);font-size:11px;color:${statusColor};min-width:52px;flex-shrink:0;text-align:right">${statusIcon}</span>
+      ${starsHtml}${noteHtml}
+    </div>`;
+  }).join('');
+
+  const emptyMsg = allLogs.length === 0 ? '<div style="color:var(--text-muted);font-size:13px;padding:20px 0">No one-off entries yet.</div>' : '';
+  document.getElementById('drilldown-content').innerHTML = `
+    <div class="drilldown-stats" style="margin-bottom:20px">${statsHtml}</div>
+    <div>${logRows}${emptyMsg}</div>`;
+  document.getElementById('date-bar').style.display = 'none';
 }
 
 // For reporting: determine if a habit was due on a given historical date
