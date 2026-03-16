@@ -847,15 +847,15 @@
 
   @media (max-width: 600px) {
     .habit-row {
-      flex-wrap: nowrap;
-      align-items: flex-start;
-      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
     }
     .habit-info {
       flex: 1;
-      min-width: 0;
+      min-width: 140px;
     }
-    .habit-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .habit-name { white-space: normal; word-break: break-word; }
     .row-controls {
       flex-shrink: 0;
       display: flex;
@@ -2375,7 +2375,7 @@ function renderReport() {
     const recentWithNote = [...allHLogs].sort((a,b) => b.date.localeCompare(a.date)).find(l => l.notes && l.notes.trim());
     const recentNoteHtml = recentWithNote
       ? `<div class="report-recent-note"><span>${recentWithNote.date}</span>${recentWithNote.notes.split('\n')[0].replace(/</g,'&lt;').replace(/(.{80}).+/, '$1…')}</div>`
-      : '';
+      : `<div class="report-recent-note" style="opacity:0.4">No notes</div>`;
 
     return `<div style="padding:10px 0;border-bottom:1px solid var(--border-light)">
       <div style="display:flex;align-items:center;gap:10px">
