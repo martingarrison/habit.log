@@ -113,8 +113,9 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 0;
+    padding: 14px 0 12px;
     border-bottom: 1px solid var(--border-light);
+    margin-bottom: 4px;
   }
 
   .date-nav button {
@@ -159,6 +160,7 @@
   /* VIEWS */
   .view { display: none; padding: 20px 0; }
   .view.active { display: block; }
+  #view-daily { padding-top: 0; }
 
   /* HABIT LIST - DAILY VIEW */
   .habits-list { display: flex; flex-direction: column; gap: 7px; }
@@ -331,6 +333,14 @@
     flex: 1;
     height: 1px;
     background: var(--border-light);
+  }
+
+  .section-label.cat-section-label {
+    padding-top: 14px;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--text-muted);
+    opacity: 0.85;
   }
 
   .section-label.coming-up-label {
@@ -688,6 +698,56 @@
     flex-shrink: 0;
   }
 
+  /* Report range toggle */
+  .report-range-toggle {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 3px;
+    width: fit-content;
+    box-shadow: 0 1px 3px rgba(30,70,110,0.07);
+  }
+  .range-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 12px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .range-btn.active {
+    background: var(--accent-light);
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .range-btn:hover:not(.active) { color: var(--text-dim); background: var(--surface2); }
+
+  /* Report recent note line */
+  .report-recent-note {
+    margin-top: 5px;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-style: italic;
+    font-family: var(--sans);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .report-recent-note span {
+    font-style: normal;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-right: 6px;
+  }
+
   /* DATA management */
   .data-section {
     background: var(--surface);
@@ -787,18 +847,24 @@
 
   @media (max-width: 600px) {
     .habit-row {
-      flex-wrap: wrap;
-      gap: 8px;
+      flex-wrap: nowrap;
+      align-items: flex-start;
+      gap: 10px;
     }
     .habit-info {
-      /* Take up full width so controls drop to next line */
-      flex-basis: 100%;
+      flex: 1;
       min-width: 0;
     }
-    .habit-name { white-space: normal; }
-    .notes-input { width: 100%; flex-basis: 100%; }
-    .notes-input { order: 10; } /* push notes to last */
-    .duration-input input { width: 52px; }
+    .habit-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row-controls {
+      flex-shrink: 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-left: auto;
+    }
+    .duration-input input { width: 48px; }
     .stat-value { font-size: 18px; }
     .heatmap-cell { width: 10px; height: 10px; }
     .digest-habit-name { min-width: 100px; font-size: 12px; }
@@ -817,23 +883,22 @@
       <button onclick="switchView('about')">About</button>
     </nav>
   </header>
-
-  <!-- DATE BAR (shown on daily view) -->
-  <div class="date-bar" id="date-bar">
-    <div class="date-nav" style="display:flex;gap:4px">
-      <button onclick="changeDate(-1)">‹</button>
-      <button onclick="changeDate(1)">›</button>
-    </div>
-    <div class="date-display">
-      <span class="day-name" id="day-name"></span>
-      <span id="date-label"></span>
-    </div>
-    <button class="today-btn" onclick="goToday()">Today</button>
-  </div>
   </div>
 
   <!-- DAILY VIEW -->
   <div class="view active" id="view-daily">
+    <!-- DATE BAR lives inside the view, scrolls with content -->
+    <div class="date-bar" id="date-bar">
+      <div class="date-nav" style="display:flex;gap:4px">
+        <button onclick="changeDate(-1)">‹</button>
+        <button onclick="changeDate(1)">›</button>
+      </div>
+      <div class="date-display">
+        <span class="day-name" id="day-name"></span>
+        <span id="date-label"></span>
+      </div>
+      <button class="today-btn" onclick="goToday()">Today</button>
+    </div>
     <div id="daily-content"></div>
   </div>
 
@@ -1245,25 +1310,65 @@
   }
   .call-link:hover { opacity: 1; }
 
+  .habit-row[data-expandable] { cursor: pointer; }
+  .habit-row[data-expandable]:active { opacity: 0.92; }
+
+  .row-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  .row-expand {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .row-call-link {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .row-call-link:hover { text-decoration: underline; }
+
+  .note-preview {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-style: italic;
+    color: var(--text-dim);
+    border: none !important;
+    background: transparent !important;
+  }
+
   /* STAR RATING */
   .star-btns {
     display: flex;
-    gap: 2px;
+    gap: 3px;
     align-items: center;
   }
   .star-btn {
     background: none;
     border: none;
-    font-size: 18px;
+    font-size: 32px;
     cursor: pointer;
     padding: 2px 1px;
     line-height: 1;
-    color: var(--border);
-    transition: color 0.1s, transform 0.1s;
+    color: white;
+    -webkit-text-stroke: 1.5px #a89880;
+    transition: color 0.1s, -webkit-text-stroke 0.1s, transform 0.1s;
   }
-  .star-btn:hover { transform: scale(1.2); }
-  .star-btn.lit { color: #e8a820; }
-  .star-btn.lit-hover { color: #e8a820; }
+  .star-btn:hover { transform: scale(1.15); }
+  .star-btn.lit { color: #d4914a; -webkit-text-stroke: 1.5px #b8763a; }
+  .star-btn.lit-hover { color: #d4914a; -webkit-text-stroke: 1.5px #b8763a; }
 
 
   .report-card-name {
@@ -1307,27 +1412,10 @@
   .cal-details summary::before { content: '▸ '; }
   .cal-details[open] summary::before { content: '▾ '; }
 
-  /* Most recent note on card */
-  .report-recent-note {
-    margin-top: 10px;
-    font-size: 12px;
-    color: var(--text-muted);
-    font-style: italic;
-    font-family: var(--sans);
-    border-top: 1px solid var(--border-light);
-    padding-top: 8px;
-  }
-  .report-recent-note span {
-    font-style: normal;
-    font-family: var(--mono);
-    font-size: 10px;
-    color: var(--text-muted);
-    margin-right: 6px;
-  }
   /* Star display in reports */
   .star-avg {
     font-size: 13px;
-    color: #e8a820;
+    color: #d4914a;
     letter-spacing: 1px;
   }
   .star-avg-num {
@@ -1460,7 +1548,6 @@ function switchView(name) {
     b.classList.toggle('active', ['daily','manage','report','about'][i] === name);
   });
   document.getElementById('view-' + name).classList.add('active');
-  document.getElementById('date-bar').style.display = name === 'daily' ? 'flex' : 'none';
   if (name === 'daily') renderDaily();
   if (name === 'manage') renderManage();
   if (name === 'report') renderReport();
@@ -1514,7 +1601,7 @@ function openDrilldown(habitId) {
   }
   if (avgStars !== null) {
     const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
-    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
+    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#d4914a;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
   }
 
   // Flat log
@@ -1526,7 +1613,7 @@ function openDrilldown(habitId) {
       statusColor = 'var(--green)';
     }
     const starsHtml = l.stars
-      ? `<span style="color:#e8a820;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
+      ? `<span style="color:#d4914a;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
     const noteHtml = l.notes && l.notes.trim()
       ? `<span style="font-size:12px;color:var(--text-muted);margin-left:10px;font-style:italic">${l.notes.replace(/</g,'&lt;')}</span>` : '';
     return `<div style="display:flex;align-items:baseline;gap:0;padding:9px 0;border-bottom:1px solid var(--border-light)">
@@ -1541,7 +1628,6 @@ function openDrilldown(habitId) {
   document.getElementById('drilldown-content').innerHTML = `
     <div class="drilldown-stats" style="margin-bottom:20px">${statsHtml}</div>
     <div>${logRows}${emptyMsg}</div>`;
-  document.getElementById('date-bar').style.display = 'none';
 }
 
 // ============================================================
@@ -1655,10 +1741,32 @@ function renderDaily() {
   }
 
   if (dueNow.length) {
-    html += `<div class="section-label">Today</div>`;
-    html += '<div class="habits-list">';
-    dueNow.forEach(({ habit: h, pushed }) => { html += buildHabitRow(h, 'due', null, pushed); });
-    html += '</div>';
+    // Show category headers only when 2+ distinct categories are present
+    const cats = [...new Set(dueNow.map(({habit: h}) => h.category))];
+    const useCatHeaders = cats.length >= 2;
+    const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
+
+    if (useCatHeaders) {
+      const catOrder = {health:0, people:1, chores:2, creative:3, other:4, family:1, music:3};
+      const grouped = {};
+      dueNow.forEach(item => {
+        const c = item.habit.category;
+        if (!grouped[c]) grouped[c] = [];
+        grouped[c].push(item);
+      });
+      const sortedCats = Object.keys(grouped).sort((a,b) => (catOrder[a]??4) - (catOrder[b]??4));
+      sortedCats.forEach(cat => {
+        html += `<div class="section-label cat-section-label">${catLabels[cat] || cat}</div>`;
+        html += '<div class="habits-list">';
+        grouped[cat].forEach(({ habit: h, pushed }) => { html += buildHabitRow(h, 'due', null, pushed); });
+        html += '</div>';
+      });
+    } else {
+      html += `<div class="section-label">Today</div>`;
+      html += '<div class="habits-list">';
+      dueNow.forEach(({ habit: h, pushed }) => { html += buildHabitRow(h, 'due', null, pushed); });
+      html += '</div>';
+    }
   }
 
   if (comingUp.length) {
@@ -1686,9 +1794,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   );
   const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
   const currentStars = log ? log.stars : null;
-  const hasStars = currentStars !== null && currentStars > 0;
 
-  const catLabels = {health:'Health',people:'People',chores:'Chores',creative:'Creative',other:'Other',family:'People',music:'Creative'};
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : h.freq === 'onetime' ? 'one-time' : `every ${h.interval}d`;
 
   let rowClass = 'habit-row';
@@ -1711,8 +1817,8 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
       ).join('');
       rightContent += `<div class="star-btns">${starsHtml}</div>`;
 
-      // Duration input — only shown after a star is given
-      if (isDuration && hasStars) {
+      // Duration input — always shown for duration tasks
+      if (isDuration) {
         const val = logVal || '';
         rightContent += `<div class="duration-input">
           <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes">
@@ -1723,9 +1829,6 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
           rightContent += `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>`;
         }
       }
-
-      const notesVal = (log && log.notes) ? log.notes : '';
-      rightContent += `<input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="notes…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">`;
     }
 
     const skipActive = isSkipped ? ' active' : '';
@@ -1738,19 +1841,47 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
     rightContent += `<span class="coming-up-badge">${dayWord}</span>`;
   }
 
-  return `<div class="${rowClass}" data-hid="${h.id}">
+  // Expandable area: notes + phone (hidden until row tap)
+  const notesVal = (log && log.notes) ? log.notes : '';
+  const phoneHtml = (h.phone && (h.category === 'people' || h.category === 'family'))
+    ? `<a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link row-call-link" title="Call ${h.name}">📞 ${h.phone}</a>`
+    : '';
+  const showExpand = mode === 'due' && !isPushed;
+  const expandHtml = showExpand ? `<div class="row-expand" style="display:none">
+    <input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="add a note…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">
+    ${phoneHtml}
+  </div>` : '';
+
+  return `<div class="${rowClass}" data-hid="${h.id}"${showExpand ? ' data-expandable="1"' : ''}>
     <div class="habit-info">
-      <div class="habit-name">${h.name}${h.phone ? ` <a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link" title="Call ${h.name}">📞</a>` : ''}</div>
+      <div class="habit-name">${h.name}</div>
       <div class="habit-meta">
-        <span class="tag cat">${catLabels[h.category] || h.category}</span>
         <span class="tag">${freqLabel}</span>
+        ${notesVal && mode === 'due' && !isPushed ? `<span class="tag note-preview" style="font-style:italic;color:var(--text-dim);border:none;background:transparent;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${notesVal.replace(/</g,'&lt;')}</span>` : ''}
       </div>
+      ${expandHtml}
     </div>
-    ${rightContent}
+    <div class="row-controls">${rightContent}</div>
   </div>`;
 }
 
 function attachRowListeners() {
+  // Row tap to expand/collapse notes + phone
+  document.querySelectorAll('.habit-row[data-expandable]').forEach(row => {
+    row.addEventListener('click', e => {
+      // Don't expand when tapping buttons, inputs, or links
+      if (e.target.closest('button,input,a,.star-btn,.skip-btn,.push-btn')) return;
+      const expand = row.querySelector('.row-expand');
+      if (!expand) return;
+      const isOpen = expand.style.display !== 'none';
+      expand.style.display = isOpen ? 'none' : 'flex';
+      row.classList.toggle('row-expanded', !isOpen);
+      if (!isOpen) {
+        setTimeout(() => expand.querySelector('input')?.focus(), 50);
+      }
+    });
+  });
+
   // Duration input
   document.querySelectorAll('.log-duration').forEach(el => {
     el.addEventListener('change', () => {
@@ -1771,6 +1902,13 @@ function attachRowListeners() {
       if (log) {
         log.notes = el.value;
         save();
+        // Update preview text without full re-render
+        const row = el.closest('.habit-row');
+        const preview = row && row.querySelector('.note-preview');
+        if (preview) {
+          if (el.value.trim()) { preview.textContent = el.value; preview.style.display = ''; }
+          else preview.style.display = 'none';
+        }
       } else if (el.value.trim()) {
         setLog(hid, currentDate, false, el.value);
       }
@@ -1822,7 +1960,6 @@ function attachRowListeners() {
         // For checkbox tasks, tapping a star also marks it done
         if (h && h.type === 'checkbox') {
           const alreadyDone = log && log.value === true;
-          const toggleOff = log && log.stars === n; // tapping same star again clears
           if (!alreadyDone) {
             const notes = (log && log.notes) || '';
             setLog(hid, currentDate, true, notes);
@@ -2193,6 +2330,8 @@ function buildWeeklyDigest(todayD) {
   </div>`;
 }
 
+let reportRange = 30; // days; null = all time
+
 function renderReport() {
   const container = document.getElementById('report-content');
   if (!habits.length) {
@@ -2207,8 +2346,17 @@ function renderReport() {
     .sort((a,b) => (catOrder[a.category]??4) - (catOrder[b.category]??4));
   const onetimeHabits = habits.filter(h => h.freq === 'onetime');
 
+  // Compute cutoff date for range filter
+  const cutoffDate = reportRange ? addDays(todayD, -reportRange) : null;
+
+  function logsInRange(hLogs) {
+    if (!cutoffDate) return hLogs;
+    return hLogs.filter(l => l.date >= cutoffDate);
+  }
+
   function buildReviewRow(h, overrideId) {
-    const hLogs = logs.filter(l => l.habitId === h.id && l.value !== 'pushed' && l.date <= todayD);
+    const allHLogs = logs.filter(l => l.habitId === h.id && l.value !== 'pushed' && l.date <= todayD);
+    const hLogs = logsInRange(allHLogs);
     const starredLogs = hLogs.filter(l => l.stars);
     const reviewCount = starredLogs.length;
     const avgStars = reviewCount > 0
@@ -2216,21 +2364,37 @@ function renderReport() {
       : null;
 
     const starsDisplay = avgStars !== null
-      ? `<span style="color:#e8a820;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
-      : `<span style="color:var(--border);font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
+      ? `<span style="color:#d4914a;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
+      : `<span style="color:#c8b89a;font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
 
     const reviewLink = reviewCount > 0
       ? `<a href="#" class="review-count-link" data-hid="${overrideId || h.id}" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">(${reviewCount})</a>`
       : `<span style="font-family:var(--mono);font-size:12px;color:var(--text-muted)">(0)</span>`;
 
-    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light)">
-      <span style="flex:1;font-size:14px;font-weight:500;color:var(--text)">${h.name}</span>
-      ${starsDisplay}
-      ${reviewLink}
+    // Most recent note (first line only, truncated)
+    const recentWithNote = [...allHLogs].sort((a,b) => b.date.localeCompare(a.date)).find(l => l.notes && l.notes.trim());
+    const recentNoteHtml = recentWithNote
+      ? `<div class="report-recent-note"><span>${recentWithNote.date}</span>${recentWithNote.notes.split('\n')[0].replace(/</g,'&lt;').replace(/(.{80}).+/, '$1…')}</div>`
+      : '';
+
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border-light)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="flex:1;font-size:14px;font-weight:500;color:var(--text)">${h.name}</span>
+        ${starsDisplay}
+        ${reviewLink}
+      </div>
+      ${recentNoteHtml}
     </div>`;
   }
 
-  let html = '<div style="padding-top:8px">';
+  // Range toggle HTML
+  const rangeToggle = `<div class="report-range-toggle">
+    <button class="range-btn${reportRange===30?' active':''}" data-range="30">30 days</button>
+    <button class="range-btn${reportRange===90?' active':''}" data-range="90">90 days</button>
+    <button class="range-btn${reportRange===null?' active':''}" data-range="all">All time</button>
+  </div>`;
+
+  let html = rangeToggle + '<div style="padding-top:4px">';
 
   recurringHabits.forEach(h => {
     html += buildReviewRow(h);
@@ -2241,15 +2405,16 @@ function renderReport() {
     const allOnetimeLogs = logs.filter(l =>
       onetimeHabits.some(h => h.id === l.habitId) && l.value !== 'pushed' && l.date <= todayD
     );
-    const starredOnetimeLogs = allOnetimeLogs.filter(l => l.stars);
+    const filteredOnetimeLogs = logsInRange(allOnetimeLogs);
+    const starredOnetimeLogs = filteredOnetimeLogs.filter(l => l.stars);
     const reviewCount = starredOnetimeLogs.length;
     const avgStars = reviewCount > 0
       ? (starredOnetimeLogs.reduce((s,l) => s + l.stars, 0) / reviewCount)
       : null;
 
     const starsDisplay = avgStars !== null
-      ? `<span style="color:#e8a820;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
-      : `<span style="color:var(--border);font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
+      ? `<span style="color:#d4914a;font-size:15px;letter-spacing:1px">${'★'.repeat(Math.round(avgStars))}${'☆'.repeat(5-Math.round(avgStars))}</span>`
+      : `<span style="color:#c8b89a;font-size:15px;letter-spacing:1px">☆☆☆☆☆</span>`;
 
     const reviewLink = reviewCount > 0
       ? `<a href="#" class="review-count-link" data-hid="__onetime__" style="font-family:var(--mono);font-size:12px;color:var(--accent);text-decoration:none">(${reviewCount})</a>`
@@ -2264,6 +2429,15 @@ function renderReport() {
 
   html += '</div>';
   container.innerHTML = html;
+
+  // Range toggle listeners
+  container.querySelectorAll('.range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.range;
+      reportRange = val === 'all' ? null : Number(val);
+      renderReport();
+    });
+  });
 
   // Attach review count link listeners
   container.querySelectorAll('.review-count-link').forEach(link => {
@@ -2305,7 +2479,7 @@ function openOnetimeDrilldown() {
   if (skipped) statsHtml += `<div class="stat-item"><div class="stat-value">${skipped}</div><div class="stat-label">Skipped</div></div>`;
   if (avgStars !== null) {
     const starsDisplay = '★'.repeat(Math.round(avgStars)) + '☆'.repeat(5 - Math.round(avgStars));
-    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#e8a820;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
+    statsHtml += `<div class="stat-item"><div class="stat-value" style="font-size:15px;color:#d4914a;letter-spacing:1px">${starsDisplay}</div><div class="stat-label">${avgStars.toFixed(1)} avg</div></div>`;
   }
 
   const logRows = allLogs.map(l => {
@@ -2314,7 +2488,7 @@ function openOnetimeDrilldown() {
     let statusIcon = '', statusColor = 'var(--text-muted)';
     if (l.value === 'skip') { statusIcon = 'skipped'; statusColor = 'var(--amber)'; }
     else if (l.value === true || (typeof l.value === 'number' && l.value > 0)) { statusIcon = 'done'; statusColor = 'var(--green)'; }
-    const starsHtml = l.stars ? `<span style="color:#e8a820;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
+    const starsHtml = l.stars ? `<span style="color:#d4914a;font-size:13px;margin-left:8px">${'★'.repeat(l.stars)}</span>` : '';
     const noteHtml = l.notes && l.notes.trim() ? `<span style="font-size:12px;color:var(--text-muted);margin-left:10px;font-style:italic">${l.notes.replace(/</g,'&lt;')}</span>` : '';
     return `<div style="display:flex;align-items:baseline;gap:0;padding:9px 0;border-bottom:1px solid var(--border-light)">
       <span style="font-family:var(--mono);font-size:11px;color:var(--text-muted);min-width:80px;flex-shrink:0">${l.date}</span>
@@ -2328,7 +2502,6 @@ function openOnetimeDrilldown() {
   document.getElementById('drilldown-content').innerHTML = `
     <div class="drilldown-stats" style="margin-bottom:20px">${statsHtml}</div>
     <div>${logRows}${emptyMsg}</div>`;
-  document.getElementById('date-bar').style.display = 'none';
 }
 
 // For reporting: determine if a habit was due on a given historical date
