@@ -1696,12 +1696,12 @@ function renderDaily() {
 
     if (h.freq === 'onetime') {
       if (!h.nextDue) return;
-      // Pushed: show in today with steel blue
-      if (isToday && log && log.value === 'pushed') {
-        dueNow.push({ habit: h, pushed: true });
-      } else if (h.nextDue === currentDate) {
-        // Due today (or navigating to the due date historically)
+      if (h.nextDue === currentDate) {
+        // Due today — always show as active, even if there's a pushed log from an earlier date
         dueNow.push({ habit: h, pushed: false });
+      } else if (isToday && log && log.value === 'pushed') {
+        // Pushed to a future date — show muted with pushed badge
+        dueNow.push({ habit: h, pushed: true });
       } else if (!isToday && log && (log.value === true || log.value === 'skip' || (typeof log.value === 'number' && log.value > 0)) && log.value !== 'pushed') {
         // Historical: show on the day it was actually logged
         dueNow.push({ habit: h, pushed: false });
