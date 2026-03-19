@@ -169,10 +169,7 @@
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 13px 16px;
-    display: flex;
-    align-items: center;
-    gap: 14px;
+    padding: 12px 16px;
     transition: border-color 0.15s, box-shadow 0.15s;
     position: relative;
     box-shadow: 0 1px 3px rgba(30,70,110,0.06);
@@ -236,10 +233,7 @@
     font-family: var(--mono);
     font-size: 11px;
     color: var(--text-muted);
-    margin-top: 2px;
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
+    margin-top: 4px;
   }
 
   .habit-meta .tag {
@@ -249,9 +243,6 @@
     color: var(--text-dim);
     border: 1px solid var(--border-light);
   }
-
-  .habit-meta .tag.cat { color: var(--accent); background: var(--accent-light); border-color: #c0d8f0; }
-  .habit-meta .tag.due-soon { color: var(--text-dim); font-style: italic; background: transparent; border: none; }
 
   /* Duration input */
   .duration-input {
@@ -846,24 +837,7 @@
   .example-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px; font-family: var(--mono); }
 
   @media (max-width: 600px) {
-    .habit-row {
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-    .habit-info {
-      flex: 1;
-      min-width: 140px;
-    }
     .habit-name { white-space: normal; word-break: break-word; }
-    .row-controls {
-      flex-shrink: 0;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 6px;
-      margin-left: auto;
-    }
     .duration-input input { width: 48px; }
     .stat-value { font-size: 18px; }
     .heatmap-cell { width: 10px; height: 10px; }
@@ -1320,6 +1294,30 @@
     flex-shrink: 0;
   }
 
+  /* Bottom row: duration (left) + stars (right), always full width */
+  .row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  /* Meta row: freq tag (left) + skip/push actions (right) */
+  .habit-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .meta-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+  }
+
   .row-expand {
     display: none;
     align-items: center;
@@ -1339,14 +1337,14 @@
   .row-call-link:hover { text-decoration: underline; }
 
   .note-preview {
+    flex: 1;
+    min-width: 0;
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     font-style: italic;
     color: var(--text-dim);
-    border: none !important;
-    background: transparent !important;
   }
 
   /* STAR RATING */
@@ -1534,6 +1532,11 @@ function setStars(habitId, dateStr, stars) {
   if (existing >= 0) {
     // Toggle off if same rating clicked again
     logs[existing].stars = logs[existing].stars === stars ? null : stars;
+    save();
+    renderDaily();
+  } else {
+    // No log yet — create one with just stars (value stays false until duration entered)
+    logs.push({ id: genId(), habitId, date: dateStr, value: false, notes: '', stars });
     save();
     renderDaily();
   }
@@ -1794,6 +1797,7 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   );
   const isPartial = !isSkipped && isDuration && hasValue && Number(logVal) > 0 && h.target && Number(logVal) < Number(h.target);
   const currentStars = log ? log.stars : null;
+  const hasStars = currentStars !== null && currentStars > 0;
 
   const freqLabel = h.freq === 'daily' ? 'daily' : h.freq === 'weekly' ? 'weekly' : h.freq === 'onetime' ? 'one-time' : `every ${h.interval}d`;
 
@@ -1805,63 +1809,86 @@ function buildHabitRow(h, mode, daysAway, isPushed) {
   if (isSkipped) rowClass += ' skipped';
   if (isPartial) rowClass += ' partial-done';
 
-  let rightContent = '';
-
-  if (mode === 'due') {
-    if (isPushed) {
-      rightContent += `<span class="coming-up-badge" style="background:#dce8f8;border-color:#a0bcd8;color:#3a6a9a">pushed → ${h.nextDue}</span>`;
-    } else if (!isSkipped) {
-      // Stars are always visible and act as completion for checkbox tasks
-      const starsHtml = [1,2,3,4,5].map(n =>
-        `<button class="star-btn${currentStars >= n ? ' lit' : ''}" data-hid="${h.id}" data-stars="${n}" title="${n} star${n>1?'s':''}">★</button>`
-      ).join('');
-      rightContent += `<div class="star-btns">${starsHtml}</div>`;
-
-      // Duration input — always shown for duration tasks
-      if (isDuration) {
-        const val = logVal || '';
-        rightContent += `<div class="duration-input">
-          <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes">
-          <span class="unit">min</span>
-        </div>`;
-        if (h.target) {
-          const targetMet = val !== '' && Number(val) >= Number(h.target);
-          rightContent += `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>`;
-        }
-      }
-    }
-
-    const skipActive = isSkipped ? ' active' : '';
-    rightContent += `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip — intentional pass'}">skip</button>`;
-    if ((h.freq === 'interval' || h.freq === 'onetime') && currentDate === todayStr() && !isSkipped) {
-      rightContent += `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>`;
-    }
-  } else {
+  if (mode === 'coming') {
     const dayWord = daysAway === 1 ? 'tomorrow' : `in ${daysAway} days`;
-    rightContent += `<span class="coming-up-badge">${dayWord}</span>`;
+    return `<div class="${rowClass}" data-hid="${h.id}">
+      <div class="habit-info">
+        <div class="habit-name">${h.name}</div>
+        <div class="habit-meta">
+          <span class="tag">${freqLabel}</span>
+          <span class="coming-up-badge" style="margin-left:auto">${dayWord}</span>
+        </div>
+      </div>
+    </div>`;
   }
 
-  // Expandable area: notes + phone (hidden until row tap)
+  if (mode === 'due' && isPushed) {
+    return `<div class="${rowClass}" data-hid="${h.id}">
+      <div class="habit-info">
+        <div class="habit-name">${h.name}</div>
+        <div class="habit-meta">
+          <span class="tag">${freqLabel}</span>
+          <span class="coming-up-badge" style="margin-left:auto;background:#dce8f8;border-color:#a0bcd8;color:#3a6a9a">pushed → ${h.nextDue}</span>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // --- due, not pushed ---
+
+  // Skip + Push inline with freq tag (right side of meta row)
+  const skipActive = isSkipped ? ' active' : '';
+  const skipBtn = `<button class="skip-btn${skipActive}" data-hid="${h.id}" title="${isSkipped ? 'Un-skip' : 'Skip'}">skip</button>`;
+  // Push: available for interval/onetime tasks that aren't skipped, on any date (past or today)
+  const canPush = (h.freq === 'interval' || h.freq === 'onetime') && !isSkipped;
+  const pushBtn = canPush ? `<button class="push-btn" data-hid="${h.id}" title="Push to a later date">push</button>` : '';
+
+  // Stars row — always shown unless skipped
+  let bottomRow = '';
+  if (!isSkipped) {
+    const starsHtml = [1,2,3,4,5].map(n =>
+      `<button class="star-btn${currentStars >= n ? ' lit' : ''}" data-hid="${h.id}" data-stars="${n}" title="${n} star${n>1?'s':''}">★</button>`
+    ).join('');
+
+    // Duration input — only revealed once stars are given
+    let durationHtml = '';
+    if (isDuration && hasStars) {
+      const val = logVal || '';
+      const targetMet = val !== '' && Number(val) >= Number(h.target);
+      durationHtml = `<div class="duration-input">
+        <input type="number" class="log-duration" data-hid="${h.id}" min="0" placeholder="0" value="${val}" title="minutes">
+        <span class="unit">min</span>
+        ${h.target ? `<span class="target-indicator${targetMet ? ' met' : ''}">/${h.target}</span>` : ''}
+      </div>`;
+    }
+
+    bottomRow = `<div class="row-bottom">
+      ${durationHtml}
+      <div class="star-btns">${starsHtml}</div>
+    </div>`;
+  }
+
+  // Expandable notes + phone
   const notesVal = (log && log.notes) ? log.notes : '';
   const phoneHtml = (h.phone && (h.category === 'people' || h.category === 'family'))
     ? `<a href="tel:${h.phone.replace(/[^0-9+]/g,'')}" class="call-link row-call-link" title="Call ${h.name}">📞 ${h.phone}</a>`
     : '';
-  const showExpand = mode === 'due' && !isPushed;
-  const expandHtml = showExpand ? `<div class="row-expand" style="display:none">
+  const expandHtml = `<div class="row-expand" style="display:none">
     <input type="text" class="notes-input log-notes" data-hid="${h.id}" placeholder="add a note…" value="${notesVal.replace(/"/g,'&quot;')}" title="Add notes">
     ${phoneHtml}
-  </div>` : '';
+  </div>`;
 
-  return `<div class="${rowClass}" data-hid="${h.id}"${showExpand ? ' data-expandable="1"' : ''}>
+  return `<div class="${rowClass}" data-hid="${h.id}" data-expandable="1">
     <div class="habit-info">
       <div class="habit-name">${h.name}</div>
       <div class="habit-meta">
         <span class="tag">${freqLabel}</span>
-        ${notesVal && mode === 'due' && !isPushed ? `<span class="tag note-preview" style="font-style:italic;color:var(--text-dim);border:none;background:transparent;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${notesVal.replace(/</g,'&lt;')}</span>` : ''}
+        ${notesVal ? `<span class="note-preview">${notesVal.replace(/</g,'&lt;')}</span>` : ''}
+        <div class="meta-actions">${skipBtn}${pushBtn}</div>
       </div>
       ${expandHtml}
+      ${bottomRow}
     </div>
-    <div class="row-controls">${rightContent}</div>
   </div>`;
 }
 
