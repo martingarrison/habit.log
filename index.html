@@ -1958,6 +1958,11 @@ function attachRowListeners() {
       } else {
         const notes = (log && log.notes) || '';
         setLog(hid, currentDate, 'skip', notes);
+        const h = habits.find(x => x.id === hid);
+        if (h && h.freq === 'interval' && currentDate === h.nextDue) {
+          h.nextDue = addDays(h.nextDue, h.interval);
+          save();
+        }
       }
       renderDaily();
     });
